@@ -1,0 +1,25 @@
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    App\Controller\:
+        resource: '../src/Controller'
+        tags: [ 'controller.service_arguments' ]
+        autowire: true
+        autoconfigure: true
+
+    App\Controller\RegisterController:
+        arguments:
+            $mailerSender: 'albarn.dekart@ukr.net'
