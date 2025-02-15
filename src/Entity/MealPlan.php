@@ -26,8 +26,9 @@ class MealPlan
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
+
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $imageUrl = null;
+    private ?string $imageFile = null;
 
     public function __construct()
     {
@@ -94,14 +95,14 @@ class MealPlan
         return $this;
     }
 
-    public function getImageUrl(): ?string
+    public function getImageFile(): ?string
     {
-        return $this->imageUrl;
+        return $this->imageFile;
     }
 
-    public function setImageUrl(?string $imageUrl): static
+    public function setImageFile(?string $imageFile): static
     {
-        $this->imageUrl = $imageUrl;
+        $this->imageFile = $imageFile;
 
         return $this;
     }

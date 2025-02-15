@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Meal;
 use App\Entity\Order;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -14,6 +15,16 @@ class OrderRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Order::class);
+    }
+
+    public function findByMeal(Meal $meal): array
+    {
+        return $this->createQueryBuilder('o')
+            ->innerJoin('o.meals', 'm')
+            ->where('m = :meal')
+            ->setParameter('meal', $meal)
+            ->getQuery()
+            ->getResult();
     }
 
     //    /**

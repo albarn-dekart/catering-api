@@ -34,11 +34,6 @@ class RegisterController extends AbstractController
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
 
-        $email = $data['email'] ?? null;
-        $plainPassword = $data['password'] ?? null;
-        $roles = $data['roles'] ?? [];
-
-        // Input validation constraints
         $constraints = new Assert\Collection([
             'email' => [
                 new Assert\NotBlank(['message' => 'Email is required.']),
@@ -66,28 +61,27 @@ class RegisterController extends AbstractController
         ]);
 
         // Validate input
-        $violations = $validator->validate(['email' => $email, 'password' => $plainPassword], $constraints);
+        $violations = $validator->validate($data, $constraints);
 
         if (count($violations) > 0) {
             $errors = [];
             foreach ($violations as $violation) {
                 $errors[] = $violation->getMessage();
             }
-            return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['error' => $errors], Response::HTTP_BAD_REQUEST);
         }
 
         // Check if user already exists
-        if (!$entityManager->getRepository(User::class)->findOneBy(['email' => $email])) {
+        if (!$entityManager->getRepository(User::class)->findOneBy(['email' => $data['email']])) {
             $user = new User();
-            $user->setEmail($email);
-            $user->setRoles($roles);
+            $user->setEmail($data['email']);
 
             // Create and set verification token
             $verificationToken = Uuid::uuid4()->toString();
             $user->setVerificationToken($verificationToken);
 
             // Hash the password and set it
-            $hashedPassword = $passwordHasher->hashPassword($user, $plainPassword);
+            $hashedPassword = $passwordHasher->hashPassword($user, $data['password']);
             $user->setPassword($hashedPassword);
 
             // Send verification email

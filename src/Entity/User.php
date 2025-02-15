@@ -125,12 +125,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setRecipientDetails(?RecipientDetails $recipientDetails): static
     {
         // unset the owning side of the relation if necessary
-        if ($recipientDetails === null && $this->recipientDetails !== null) {
+        if ($recipientDetails == null && $this->recipientDetails != null) {
             $this->recipientDetails->setOwner(null);
         }
 
         // set the owning side of the relation if necessary
-        if ($recipientDetails !== null && $recipientDetails->getOwner() !== $this) {
+        if ($recipientDetails != null && $recipientDetails->getOwner() !== $this) {
             $recipientDetails->setOwner($this);
         }
 

@@ -17,6 +17,81 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class UserController extends AbstractController
 {
+    #[Route('/api/user/details', name: 'api_user_details', methods: ['GET'])]
+    public function getUserDetails(UserRepository $repository): JsonResponse
+    {
+        return $this->userDetails($repository);
+    }
+
+    #[Route('/api/user/details', name: 'api_update_details', methods: ['PUT'])]
+    public function updateDetails(Request $request, UserRepository $repository, EntityManagerInterface $entityManager, ValidatorInterface $validator): JsonResponse
+    {
+        return $this->updateUserDetails($request, $repository, $entityManager, $validator);
+    }
+
+    #[Route('/api/user/change_password', name: 'api_change_password', methods: ['PATCH'])]
+    public function changePassword(
+        Request                     $request,
+        EntityManagerInterface      $entityManager,
+        UserPasswordHasherInterface $passwordHasher,
+        ValidatorInterface          $validator
+    ): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $data = json_decode($request->getContent(), true);
+
+        // Input validation constraints
+        $constraints = new Assert\Collection([
+            'currentPassword' => [
+                new Assert\NotBlank(['message' => 'Password is required.']),
+            ],
+            'newPassword' => [
+                new Assert\NotBlank(['message' => 'Password is required.']),
+                new Assert\Length([
+                    'min' => 8,
+                    'minMessage' => 'Password must be at least {{ limit }} characters long.',
+                ]),
+                new Assert\Regex([
+                    'pattern' => '/[A-Z]/',
+                    'message' => 'Password must contain at least one uppercase letter.',
+                ]),
+                new Assert\Regex([
+                    'pattern' => '/\d/',
+                    'message' => 'Password must contain at least one digit.',
+                ]),
+                new Assert\Regex([
+                    'pattern' => '/[\W_]/',
+                    'message' => 'Password must contain at least one special character.',
+                ]),
+            ],
+        ]);
+
+        // Validate input
+        $violations = $validator->validate($data, $constraints);
+
+        if (!$passwordHasher->isPasswordValid($user, $data['currentPassword'])) {
+            return new JsonResponse(['error' => 'Current password is incorrect.'], Response::HTTP_BAD_REQUEST);
+        }
+
+
+        if (count($violations) > 0) {
+            $errors = [];
+            foreach ($violations as $violation) {
+                $errors[] = $violation->getMessage();
+            }
+            return new JsonResponse(['error' => $errors], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Hash the new password and set it
+        $hashedNewPassword = $passwordHasher->hashPassword($user, $data['newPassword']);
+        $user->setPassword($hashedNewPassword);
+        $entityManager->flush();
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
     #[Route('/api/admin/users', name: 'api_users', methods: ['GET'])]
     public function getUsers(UserRepository $repository): JsonResponse
     {
@@ -34,145 +109,24 @@ class UserController extends AbstractController
         return new JsonResponse($data, Response::HTTP_OK);
     }
 
-    #[Route('/api/admin/user/{id}', name: 'api_user_byId', methods: ['GET'])]
-    public function getUserById(UserRepository $repository, int $id): JsonResponse
+    #[Route('/api/admin/user/{id}/details', name: 'api_user_details_byId', methods: ['GET'])]
+    public function getUserDetailsById(UserRepository $repository, int $id): JsonResponse
     {
         return $this->getUserDetails($repository, $id);
     }
 
-    #[Route('/api/user', name: 'api_user_details', methods: ['GET'])]
-    public function user(UserRepository $repository): JsonResponse
-    {
-        return $this->getUserDetails($repository);
-    }
-
-    public function getUserDetails(UserRepository $repository, int $id = null): JsonResponse
-    {
-        /** @var User $user */
-        $user = $id ? $repository->find($id) : $this->getUser();
-
-        $recipientDetails = $user->getRecipientDetails();
-        $data = [
-            'firstName' => $recipientDetails->getFirstName(),
-            'secondName' => $recipientDetails->getSecondName(),
-            'phoneNumber' => $recipientDetails->getPhoneNumber(),
-            'city' => $recipientDetails->getCity(),
-            'postcode' => $recipientDetails->getPostcode(),
-            'address' => $recipientDetails->getAddress(),
-        ];
-
-        return new JsonResponse($data, Response::HTTP_OK);
-    }
-
-    #[Route('/api/admin/user/{id}', name: 'api_patch_details_byId', methods: ['PUT'])]
-    public function updateDetailsById(Request $request, UserRepository $repository, EntityManagerInterface $entityManager, ValidatorInterface $validator,  int $id): JsonResponse
+    #[Route('/api/admin/user/{id}/details', name: 'api_patch_details_byId', methods: ['PUT'])]
+    public function updateUserDetailsById(Request $request, UserRepository $repository, EntityManagerInterface $entityManager, ValidatorInterface $validator, int $id): JsonResponse
     {
         return $this->updateUserDetails($request, $repository, $entityManager, $validator, $id);
     }
 
-    #[Route('/api/user', name: 'api_update_details', methods: ['PUT'])]
-    public function updateDetails(Request $request, UserRepository $repository, EntityManagerInterface $entityManager, ValidatorInterface $validator): JsonResponse
-    {
-        return $this->updateUserDetails($request, $repository, $entityManager, $validator);
-    }
-
-    public function updateUserDetails(
-        Request $request,
-        UserRepository $repository,
-        EntityManagerInterface $entityManager,
-        ValidatorInterface $validator,
-        int $id = null
-    ): JsonResponse {
-        /** @var User $user */
-        $user = $id ? $repository->find($id) : $this->getUser();
-        if (!$user) {
-            return new JsonResponse(null, Response::HTTP_NOT_FOUND);
-        }
-
-        $recipientDetails = $user->getRecipientDetails();
-        if (!$recipientDetails) {
-            $recipientDetails = new RecipientDetails();
-            $user->setRecipientDetails($recipientDetails);
-        }
-
-        $data = json_decode($request->getContent(), true);
-
-        // Define validation constraints
-        $constraints = new Assert\Collection([
-            'firstName' => new Assert\Optional([
-                new Assert\NotBlank(['message' => 'First name cannot be blank.']),
-                new Assert\Length([
-                    'max' => 50,
-                    'maxMessage' => 'First name cannot exceed {{ limit }} characters.',
-                ]),
-            ]),
-            'secondName' => new Assert\Optional([
-                new Assert\NotBlank(['message' => 'Second name cannot be blank.']),
-                new Assert\Length([
-                    'max' => 50,
-                    'maxMessage' => 'Second name cannot exceed {{ limit }} characters.',
-                ]),
-            ]),
-            'city' => new Assert\Optional([
-                new Assert\NotBlank(['message' => 'City cannot be blank.']),
-                new Assert\Length([
-                    'max' => 100,
-                    'maxMessage' => 'City cannot exceed {{ limit }} characters.',
-                ]),
-            ]),
-            'postCode' => new Assert\Optional([
-                new Assert\NotBlank(['message' => 'Post code cannot be blank.']),
-                new Assert\Regex([
-                    'pattern' => '/^\d{2}-\d{3}$/',
-                    'message' => 'Post code must follow the format XX-XXX.',
-                ]),
-            ]),
-            'address' => new Assert\Optional([
-                new Assert\NotBlank(['message' => 'Address cannot be blank.']),
-                new Assert\Length([
-                    'max' => 255,
-                    'maxMessage' => 'Address cannot exceed {{ limit }} characters.',
-                ]),
-            ]),
-            'phoneNumber' => new Assert\Optional([
-                new Assert\NotBlank(['message' => 'Phone number cannot be blank.']),
-                new Assert\Regex([
-                    'pattern' => '/^\+?[0-9]{7,15}$/',
-                    'message' => 'Phone number must be a valid international number.',
-                ]),
-            ]),
-        ]);
-
-        // Validate the input data
-        $violations = $validator->validate($data, $constraints);
-
-        if (count($violations) > 0) {
-            $errors = [];
-            foreach ($violations as $violation) {
-                $errors[] = $violation->getMessage();
-            }
-            return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
-        }
-
-        // Update recipient details if validation passes
-        if (isset($data['firstName'])) $recipientDetails->setFirstName($data['firstName']);
-        if (isset($data['secondName'])) $recipientDetails->setSecondName($data['secondName']);
-        if (isset($data['city'])) $recipientDetails->setCity($data['city']);
-        if (isset($data['postCode'])) $recipientDetails->setPostCode($data['postCode']);
-        if (isset($data['address'])) $recipientDetails->setAddress($data['address']);
-        if (isset($data['phoneNumber'])) $recipientDetails->setPhoneNumber($data['phoneNumber']);
-
-        $entityManager->flush();
-
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
-    }
-
     #[Route('/api/admin/user/{id}/update_roles', name: 'api_update_user_roles', methods: ['PATCH'])]
     public function updateUserRoles(
-        Request $request,
-        UserRepository $repository,
+        Request                $request,
+        UserRepository         $repository,
         EntityManagerInterface $entityManager,
-        int $id
+        int                    $id
     ): JsonResponse
     {
         /** @var User $user */
@@ -190,7 +144,7 @@ class UserController extends AbstractController
     }
 
     #[Route('/api/admin/user/{id}/delete', name: 'api_delete_user', methods: ['DELETE'])]
-    public function delete(UserRepository $repository, int $id, EntityManagerInterface $entityManager): JsonResponse
+    public function deleteUser(UserRepository $repository, int $id, EntityManagerInterface $entityManager): JsonResponse
     {
         /** @var User|null $user */
         $user = $repository->find($id);
@@ -213,31 +167,114 @@ class UserController extends AbstractController
         }
     }
 
-    #[Route('/api/user/change_password', name: 'api_change_password', methods: ['PATCH'])]
-    public function changePassword(
-        Request                     $request,
-        EntityManagerInterface      $entityManager,
-        UserPasswordHasherInterface $passwordHasher
+    public function userDetails(UserRepository $repository, int $id = null): JsonResponse
+    {
+        /** @var User $user */
+        $user = $id ? $repository->find($id) : $this->getUser();
+
+        $recipientDetails = $user->getRecipientDetails();
+
+        if ($recipientDetails) {
+            $data = [
+                'firstName' => $recipientDetails->getFirstName(),
+                'secondName' => $recipientDetails->getSecondName(),
+                'phoneNumber' => $recipientDetails->getPhoneNumber(),
+                'city' => $recipientDetails->getCity(),
+                'postCode' => $recipientDetails->getPostcode(),
+                'address' => $recipientDetails->getAddress(),
+            ];
+        }
+
+        return new JsonResponse($data ?? null, Response::HTTP_OK);
+    }
+
+    public function updateUserDetails(
+        Request                $request,
+        UserRepository         $repository,
+        EntityManagerInterface $entityManager,
+        ValidatorInterface     $validator,
+        int                    $id = null
     ): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
+        $user = $id ? $repository->find($id) : $this->getUser();
+        if (!$user) {
+            return new JsonResponse(null, Response::HTTP_NOT_FOUND);
+        }
+
+        $recipientDetails = $user->getRecipientDetails();
+        if (!$recipientDetails) {
+            $recipientDetails = new RecipientDetails();
+            $user->setRecipientDetails($recipientDetails);
+        }
 
         $data = json_decode($request->getContent(), true);
 
-        $currentPassword = $data['currentPassword'] ?? null;
-        $newPassword = $data['newPassword'] ?? null;
+        // Define validation constraints
+        $constraints = new Assert\Collection([
+            'firstName' => [
+                new Assert\NotBlank(['message' => 'First name cannot be blank.']),
+                new Assert\Length([
+                    'max' => 50,
+                    'maxMessage' => 'First name cannot exceed {{ limit }} characters.',
+                ]),
+            ],
+            'secondName' => [
+                new Assert\NotBlank(['message' => 'Second name cannot be blank.']),
+                new Assert\Length([
+                    'max' => 50,
+                    'maxMessage' => 'Second name cannot exceed {{ limit }} characters.',
+                ]),
+            ],
+            'city' => [
+                new Assert\NotBlank(['message' => 'City cannot be blank.']),
+                new Assert\Length([
+                    'max' => 100,
+                    'maxMessage' => 'City cannot exceed {{ limit }} characters.',
+                ]),
+            ],
+            'postCode' => [
+                new Assert\NotBlank(['message' => 'Post code cannot be blank.']),
+                new Assert\Regex([
+                    'pattern' => '/^\d{2}-\d{3}$/',
+                    'message' => 'Post code must follow the format XX-XXX.',
+                ]),
+            ],
+            'address' => [
+                new Assert\NotBlank(['message' => 'Address cannot be blank.']),
+                new Assert\Length([
+                    'max' => 255,
+                    'maxMessage' => 'Address cannot exceed {{ limit }} characters.',
+                ]),
+            ],
+            'phoneNumber' => [
+                new Assert\NotBlank(['message' => 'Phone number cannot be blank.']),
+                new Assert\Regex([
+                    'pattern' => '/^\+?[0-9]{7,15}$/',
+                    'message' => 'Phone number must be a valid international number.',
+                ]),
+            ],
+        ]);
 
-        if (!$currentPassword || !$newPassword) {
-            return new JsonResponse(['message' => 'Old and new passwords are required.'], Response::HTTP_BAD_REQUEST);
+        // Validate the input data
+        $violations = $validator->validate($data, $constraints);
+
+        if (count($violations) > 0) {
+            $errors = [];
+            foreach ($violations as $violation) {
+                $errors[] = $violation->getMessage();
+            }
+            return new JsonResponse(['error' => $errors], Response::HTTP_BAD_REQUEST);
         }
 
-        if (!$passwordHasher->isPasswordValid($user, $currentPassword)) {
-            return new JsonResponse(['message' => 'Old password is incorrect.'], Response::HTTP_BAD_REQUEST);
-        }
+        // Update recipient details if validation passes
+        $recipientDetails->setFirstName($data['firstName']);
+        $recipientDetails->setSecondName($data['secondName']);
+        $recipientDetails->setCity($data['city']);
+        $recipientDetails->setPostCode($data['postCode']);
+        $recipientDetails->setAddress($data['address']);
+        $recipientDetails->setPhoneNumber($data['phoneNumber']);
 
-        $hashedNewPassword = $passwordHasher->hashPassword($user, $newPassword);
-        $user->setPassword($hashedNewPassword);
         $entityManager->flush();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);

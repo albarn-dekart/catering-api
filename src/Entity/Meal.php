@@ -19,14 +19,12 @@ class Meal
     #[ORM\Column(length: 50)]
     private ?string $name = null;
 
-    #[ORM\Column(type: Types::TEXT, nullable: true)]
-    private ?string $description = null;
-
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $imageUrl = null;
-
-    #[ORM\ManyToMany(targetEntity: Category::class, inversedBy: 'meals')]
+    #[ORM\ManyToMany(targetEntity: Category::class, mappedBy: 'meals')]
     private Collection $categories;
+
+    #[ORM\ManyToMany(targetEntity: MealPlan::class, mappedBy: 'meals')]
+    private Collection $mealPlans;
+
     #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
     private ?string $calories = null;
 
@@ -45,16 +43,20 @@ class Meal
     public function __construct()
     {
         $this->categories = new ArrayCollection();
+        $this->mealPlans = new ArrayCollection();
     }
 
     public function data(): array
     {
+        $categories = [];
+        foreach ($this->categories as $category) {
+            $categories[] = ['id' => $category->getId(), 'name' => $category->getName()];
+        }
+
         return [
             'id' => $this->getId(),
             'name' => $this->getName(),
-            'description' => $this->getDescription(),
-            'imageUrl' => $this->getImageUrl(),
-            'categories' => array_map(fn($category) => $category->getName(), $this->getCategories()->toArray()),
+            'categories' => $categories,
             'calories' => $this->getCalories(),
             'protein' => $this->getProtein(),
             'fat' => $this->getFat(),
@@ -77,6 +79,7 @@ class Meal
     {
         if (!$this->categories->contains($category)) {
             $this->categories->add($category);
+            $category->addMeal($this);
         }
 
         return $this;
@@ -84,19 +87,19 @@ class Meal
 
     public function removeCategory(Category $category): static
     {
-        $this->categories->removeElement($category);
+        if ($this->categories->removeElement($category)) {
+            $category->removeMeal($this);
+        }
 
         return $this;
     }
 
-    public function getImageUrl(): ?string
+    public function clearCategories(): static
     {
-        return $this->imageUrl;
-    }
-
-    public function setImageUrl(?string $imageUrl): static
-    {
-        $this->imageUrl = $imageUrl;
+        foreach ($this->categories as $category) {
+            $category->removeMeal($this);
+        }
+        $this->categories->clear();
 
         return $this;
     }
@@ -157,18 +160,6 @@ class Meal
     public function setPrice(string $price): static
     {
         $this->price = $price;
-
-        return $this;
-    }
-
-    public function getDescription(): ?string
-    {
-        return $this->description;
-    }
-
-    public function setDescription(?string $description): static
-    {
-        $this->description = $description;
 
         return $this;
     }

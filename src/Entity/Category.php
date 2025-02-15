@@ -17,13 +17,13 @@ class Category
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 50)]
     private ?string $name = null;
 
     /**
      * @var Collection<int, Meal>
      */
-    #[ORM\ManyToMany(targetEntity: Meal::class, mappedBy: 'Category')]
+    #[ORM\ManyToMany(targetEntity: Meal::class, inversedBy: 'categories')]
     private Collection $meals;
 
     public function __construct()
