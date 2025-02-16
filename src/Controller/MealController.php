@@ -19,7 +19,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class MealController extends AbstractController
 {
-    #[Route('/api/meals/{category}', name: 'api_get_meals_by_category', methods: ['GET'])]
+    #[Route('/meals/{category}', name: 'get_meals_by_category', methods: ['GET'])]
     public function getMealsByCategory(MealRepository $repository, string $category): JsonResponse
     {
         $data = [];
@@ -31,7 +31,7 @@ class MealController extends AbstractController
         return new JsonResponse($data, Response::HTTP_OK);
     }
 
-    #[Route('/api/meals', name: 'api_get_meals', methods: ['GET'])]
+    #[Route('/meals', name: 'get_meals', methods: ['GET'])]
     public function getMeals(MealRepository $repository): JsonResponse
     {
         $data = [];
@@ -43,7 +43,7 @@ class MealController extends AbstractController
         return new JsonResponse($data, Response::HTTP_OK);
     }
 
-    #[Route('/api/admin/meal/{id?}', name: 'api_save_meal', methods: ['POST', 'PUT'])]
+    #[Route('/admin/meal/{id?}', name: 'save_meal', methods: ['POST', 'PUT'])]
     public function saveMeal(
         Request                $request,
         EntityManagerInterface $entityManager,
@@ -142,7 +142,7 @@ class MealController extends AbstractController
         return new JsonResponse(null, $id == null ? Response::HTTP_CREATED : Response::HTTP_NO_CONTENT);
     }
 
-    #[Route('/api/admin/meal/{id}/delete', name: 'api_delete_meal', methods: ['DELETE'])]
+    #[Route('/admin/meal/{id}/delete', name: 'delete_meal', methods: ['DELETE'])]
     public function deleteMeal(MealRepository $mealRepository, OrderRepository $orderRepository, MealPlanRepository $mealPlanRepository, int $id, EntityManagerInterface $entityManager): JsonResponse
     {
         $meal = $mealRepository->find($id);

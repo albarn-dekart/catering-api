@@ -17,19 +17,19 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class UserController extends AbstractController
 {
-    #[Route('/api/user/details', name: 'api_user_details', methods: ['GET'])]
+    #[Route('/user/details', name: 'user_details', methods: ['GET'])]
     public function getUserDetails(UserRepository $repository): JsonResponse
     {
         return $this->userDetails($repository);
     }
 
-    #[Route('/api/user/details', name: 'api_update_details', methods: ['PUT'])]
+    #[Route('/user/details', name: 'update_details', methods: ['PUT'])]
     public function updateDetails(Request $request, UserRepository $repository, EntityManagerInterface $entityManager, ValidatorInterface $validator): JsonResponse
     {
         return $this->updateUserDetails($request, $repository, $entityManager, $validator);
     }
 
-    #[Route('/api/user/change_password', name: 'api_change_password', methods: ['PATCH'])]
+    #[Route('/user/change_password', name: 'change_password', methods: ['PATCH'])]
     public function changePassword(
         Request                     $request,
         EntityManagerInterface      $entityManager,
@@ -92,7 +92,7 @@ class UserController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
-    #[Route('/api/admin/users', name: 'api_users', methods: ['GET'])]
+    #[Route('/admin/users', name: 'users', methods: ['GET'])]
     public function getUsers(UserRepository $repository): JsonResponse
     {
         $users = $repository->findAll();
@@ -109,19 +109,19 @@ class UserController extends AbstractController
         return new JsonResponse($data, Response::HTTP_OK);
     }
 
-    #[Route('/api/admin/user/{id}/details', name: 'api_user_details_byId', methods: ['GET'])]
+    #[Route('/admin/user/{id}/details', name: 'user_details_byId', methods: ['GET'])]
     public function getUserDetailsById(UserRepository $repository, int $id): JsonResponse
     {
         return $this->getUserDetails($repository, $id);
     }
 
-    #[Route('/api/admin/user/{id}/details', name: 'api_patch_details_byId', methods: ['PUT'])]
+    #[Route('/admin/user/{id}/details', name: 'patch_details_byId', methods: ['PUT'])]
     public function updateUserDetailsById(Request $request, UserRepository $repository, EntityManagerInterface $entityManager, ValidatorInterface $validator, int $id): JsonResponse
     {
         return $this->updateUserDetails($request, $repository, $entityManager, $validator, $id);
     }
 
-    #[Route('/api/admin/user/{id}/update_roles', name: 'api_update_user_roles', methods: ['PATCH'])]
+    #[Route('/admin/user/{id}/update_roles', name: 'update_user_roles', methods: ['PATCH'])]
     public function updateUserRoles(
         Request                $request,
         UserRepository         $repository,
@@ -143,7 +143,7 @@ class UserController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
-    #[Route('/api/admin/user/{id}/delete', name: 'api_delete_user', methods: ['DELETE'])]
+    #[Route('/admin/user/{id}/delete', name: 'delete_user', methods: ['DELETE'])]
     public function deleteUser(UserRepository $repository, int $id, EntityManagerInterface $entityManager): JsonResponse
     {
         /** @var User|null $user */

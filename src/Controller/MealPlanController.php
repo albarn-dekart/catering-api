@@ -16,7 +16,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class MealPlanController extends AbstractController
 {
-    #[Route('/api/meal_plan', name: 'api_get_meals_plans', methods: ['GET'])]
+    #[Route('/meal_plan', name: 'get_meals_plans', methods: ['GET'])]
     public function getMealPlans(MealPlanRepository $repository): JsonResponse
     {
         $data = [];
@@ -41,7 +41,7 @@ class MealPlanController extends AbstractController
     }
 
 
-    #[Route('/api/admin/meal_plan/{id?}', name: 'api_save_meal_plan', methods: ['POST', 'PUT'])]
+    #[Route('/admin/meal_plan/{id?}', name: 'save_meal_plan', methods: ['POST', 'PUT'])]
     public function saveMealPlan(
         Request                $request,
         EntityManagerInterface $entityManager,
@@ -128,7 +128,7 @@ class MealPlanController extends AbstractController
         return new JsonResponse(null, $id == null ? Response::HTTP_CREATED : Response::HTTP_NO_CONTENT);
     }
 
-    #[Route('/api/admin/meal_plan/{id}/delete', name: 'api_delete_meal_plan', methods: ['DELETE'])]
+    #[Route('/admin/meal_plan/{id}/delete', name: 'delete_meal_plan', methods: ['DELETE'])]
     public function deleteMealPlan(MealPlanRepository $repository, int $id, EntityManagerInterface $entityManager): JsonResponse
     {
         $mealPlan = $repository->find($id);
