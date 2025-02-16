@@ -20,13 +20,13 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class OrderController extends AbstractController
 {
-    #[Route('/user/orders', name: 'get_orders', methods: ['GET'])]
+    #[Route('/api/user/orders', name: 'api_get_orders', methods: ['GET'])]
     public function getOrders(UserRepository $repository): JsonResponse
     {
         return $this->getUserOrders($repository);
     }
 
-    #[Route('/admin/user/{id}/orders', name: 'user_orders', methods: ['GET'])]
+    #[Route('/api/admin/user/{id}/orders', name: 'api_user_orders', methods: ['GET'])]
     public function getOrdersByUserId(UserRepository $repository, int $id): JsonResponse
     {
         return $this->getUserOrders($repository, $id);
@@ -58,7 +58,7 @@ class OrderController extends AbstractController
         return new JsonResponse($data, Response::HTTP_OK);
     }
 
-    #[Route('/admin/order/{id}/update_status', name: 'update_order_status', methods: ['PATCH'])]
+    #[Route('/api/admin/order/{id}/update_status', name: 'api_update_order_status', methods: ['PATCH'])]
     public function updateOrderStatus(
         Request                $request,
         OrderRepository        $repository,
@@ -77,7 +77,7 @@ class OrderController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
-    #[Route('/admin/order/{id}/delete', name: 'delete_order', methods: ['DELETE'])]
+    #[Route('/api/admin/order/{id}/delete', name: 'api_delete_order', methods: ['DELETE'])]
     public function deleteOrder(OrderRepository $repository, int $id, EntityManagerInterface $entityManager): JsonResponse
     {
         $order = $repository->find($id);
@@ -90,7 +90,7 @@ class OrderController extends AbstractController
     }
 
 
-    #[Route('/order', name: 'create_order', methods: ['POST'])]
+    #[Route('/api/order', name: 'api_create_order', methods: ['POST'])]
     public function newOrder(
         Request                $request,
         EntityManagerInterface $entityManager,

@@ -23,10 +23,7 @@ class RegisterController extends AbstractController
 {
     public function __construct(private readonly string $mailerSender) {}
 
-    /**
-     * @throws TransportExceptionInterface
-     */
-    #[Route('/register', name: 'register', methods: ['POST'])]
+    #[Route('/api/register', name: 'register', methods: ['POST'])]
     public function register(
         Request $request,
         EntityManagerInterface $entityManager,
@@ -88,7 +85,7 @@ class RegisterController extends AbstractController
             $user->setPassword($hashedPassword);
 
             // Send verification email
-             $this->sendVerificationEmail($mailer, $user, $router);
+            // $this->sendVerificationEmail($mailer, $user, $router);
 
             // Save the user to the database
             $entityManager->persist($user);
