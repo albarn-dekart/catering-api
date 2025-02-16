@@ -15,7 +15,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class CategoryController extends AbstractController
 {
-    #[Route('/categories', name: 'api_get_categories', methods: ['GET'])]
+    #[Route('/categories', name: 'get_categories', methods: ['GET'])]
     public function getCategories(CategoryRepository $repository): JsonResponse
     {
         $data = [];
@@ -28,7 +28,7 @@ class CategoryController extends AbstractController
     }
 
 
-    #[Route('/admin/category/{id?}', name: 'api_save_category', methods: ['POST', 'PUT'])]
+    #[Route('/admin/category/{id?}', name: 'save_category', methods: ['POST', 'PUT'])]
     public function saveCategory(
         Request                $request,
         EntityManagerInterface $entityManager,
@@ -86,7 +86,7 @@ class CategoryController extends AbstractController
         return new JsonResponse(null, $id == null ? Response::HTTP_CREATED : Response::HTTP_NO_CONTENT);
     }
 
-    #[Route('/admin/category/{id}/delete', name: 'api_delete_category', methods: ['DELETE'])]
+    #[Route('/admin/category/{id}/delete', name: 'delete_category', methods: ['DELETE'])]
     public function deleteCategory(CategoryRepository $categoryRepository, int $id, EntityManagerInterface $entityManager): JsonResponse
     {
         $category = $categoryRepository->find($id);
