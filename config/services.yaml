@@ -1,6 +1,7 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    images_directory: '%kernel.project_dir%/public/images'
 
 services:
     _defaults:
@@ -19,10 +20,6 @@ services:
         tags: [ 'controller.service_arguments' ]
         autowire: true
         autoconfigure: true
-
-    App\Controller\RegisterController:
-        arguments:
-            $mailerSender: 'albarn.dekart@ukr.net'
 
     App\EventListener\JWTCreatedListener:
         tags:
