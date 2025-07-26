@@ -7,7 +7,27 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\Put;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Delete;
 
+#[ApiResource(
+    operations: [
+        new GetCollection(),
+        new Post(security: "is_granted('ROLE_RESTAURANT')"),
+        new Get(),
+        new Put(security: "is_granted('ROLE_RESTAURANT') and object.getRestaurant().isOwnedBy(user)"),
+        new Patch(security: "is_granted('ROLE_RESTAURANT') and object.getRestaurant().isOwnedBy(user)"),
+        new Delete(security: "is_granted('ROLE_RESTAURANT') and object.getRestaurant().isOwnedBy(user)"),
+    ],
+    normalizationContext: ['groups' => ['meal:read']],
+    denormalizationContext: ['groups' => ['meal:write']]
+)]
 #[ORM\Entity(repositoryClass: MealRepository::class)]
 class Meal
 {
@@ -17,52 +37,45 @@ class Meal
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
+    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
     private ?string $name = null;
 
     #[ORM\ManyToMany(targetEntity: Category::class, mappedBy: 'meals')]
+    #[Groups(['meal:read', 'meal:write'])]
     private Collection $categories;
 
     #[ORM\ManyToMany(targetEntity: MealPlan::class, mappedBy: 'meals')]
     private Collection $mealPlans;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
-    private ?string $calories = null;
+    #[ORM\Column(type: Types::FLOAT)]
+    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
+    private ?float $calories = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
-    private ?string $protein = null;
+    #[ORM\Column(type: Types::FLOAT)]
+    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
+    private ?float $protein = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
-    private ?string $fat = null;
+    #[ORM\Column(type: Types::FLOAT)]
+    #[Groups(['meal:read', 'meal:write', 'meal:plan:read'])]
+    private ?float $fat = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
-    private ?string $carbs = null;
+    #[ORM\Column(type: Types::FLOAT)]
+    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
+    private ?float $carbs = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
-    private ?string $price = null;
+    #[ORM\Column(type: Types::FLOAT)]
+    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
+    private ?float $price = null;
+
+    #[ORM\ManyToOne(inversedBy: 'meals')]
+    #[ORM\JoinColumn(nullable: false)]
+    #[Groups(['meal:read', 'meal:write'])]
+    private ?Restaurant $restaurant = null;
 
     public function __construct()
     {
         $this->categories = new ArrayCollection();
         $this->mealPlans = new ArrayCollection();
-    }
-
-    public function data(): array
-    {
-        $categories = [];
-        foreach ($this->categories as $category) {
-            $categories[] = ['id' => $category->getId(), 'name' => $category->getName()];
-        }
-
-        return [
-            'id' => $this->getId(),
-            'name' => $this->getName(),
-            'categories' => $categories,
-            'calories' => $this->getCalories(),
-            'protein' => $this->getProtein(),
-            'fat' => $this->getFat(),
-            'carbs' => $this->getCarbs(),
-            'price' => $this->getPrice(),
-        ];
     }
 
     public function getId(): ?int
@@ -104,60 +117,60 @@ class Meal
         return $this;
     }
 
-    public function getCalories(): ?string
+    public function getCalories(): ?float
     {
         return $this->calories;
     }
 
-    public function setCalories(string $calories): static
+    public function setCalories(float $calories): static
     {
         $this->calories = $calories;
 
         return $this;
     }
 
-    public function getProtein(): ?string
+    public function getProtein(): ?float
     {
         return $this->protein;
     }
 
-    public function setProtein(string $protein): static
+    public function setProtein(float $protein): static
     {
         $this->protein = $protein;
 
         return $this;
     }
 
-    public function getFat(): ?string
+    public function getFat(): ?float
     {
         return $this->fat;
     }
 
-    public function setFat(string $fat): static
+    public function setFat(float $fat): static
     {
         $this->fat = $fat;
 
         return $this;
     }
 
-    public function getCarbs(): ?string
+    public function getCarbs(): ?float
     {
         return $this->carbs;
     }
 
-    public function setCarbs(string $carbs): static
+    public function setCarbs(float $carbs): static
     {
         $this->carbs = $carbs;
 
         return $this;
     }
 
-    public function getPrice(): ?string
+    public function getPrice(): ?float
     {
         return $this->price;
     }
 
-    public function setPrice(string $price): static
+    public function setPrice(float $price): static
     {
         $this->price = $price;
 
@@ -172,6 +185,17 @@ class Meal
     public function setName(string $name): static
     {
         $this->name = $name;
+        return $this;
+    }
+
+    public function getRestaurant(): ?Restaurant
+    {
+        return $this->restaurant;
+    }
+
+    public function setRestaurant(?Restaurant $restaurant): static
+    {
+        $this->restaurant = $restaurant;
 
         return $this;
     }

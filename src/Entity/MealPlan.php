@@ -7,6 +7,8 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: MealPlanRepository::class)]
 class MealPlan
@@ -17,16 +19,28 @@ class MealPlan
     private ?int $id = null;
 
     #[ORM\ManyToMany(targetEntity: Meal::class, inversedBy: 'mealPlans')]
+    #[Groups(['meal_plan:read', 'meal_plan:write'])]
     private Collection $meals;
 
     #[ORM\Column(length: 50)]
+    #[Groups(['meal_plan:read', 'meal_plan:write'])]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 50)]
     private ?string $name = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[Groups(['meal_plan:read', 'meal_plan:write'])]
+    #[Assert\Length(max: 1000)]
     private ?string $description = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['meal_plan:read', 'meal_plan:write'])]
+    #[Assert\Length(max: 255)]
     private ?string $imageFile = null;
+
+    #[ORM\ManyToOne(inversedBy: 'mealPlans')]
+    #[Groups(['meal_plan:read', 'meal_plan:write'])]
+    private ?Restaurant $restaurant = null;
 
     public function __construct()
     {
@@ -101,6 +115,18 @@ class MealPlan
     public function setImageFile(?string $imageFile): static
     {
         $this->imageFile = $imageFile;
+
+        return $this;
+    }
+
+    public function getRestaurant(): ?Restaurant
+    {
+        return $this->restaurant;
+    }
+
+    public function setRestaurant(?Restaurant $restaurant): static
+    {
+        $this->restaurant = $restaurant;
 
         return $this;
     }

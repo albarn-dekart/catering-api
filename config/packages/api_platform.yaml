@@ -1,0 +1,40 @@
+api_platform:
+  title: 'Catering API'
+  description: 'API for food delivery platform'
+  version: '1.0.0'
+  defaults:
+    stateless: true
+    cache_headers:
+      vary: [ 'Content-Type', 'Authorization', 'Origin' ]
+    pagination_items_per_page: 30
+
+  mapping:
+    paths: [ '%kernel.project_dir%/src/Entity' ]
+
+  patch_formats:
+    json: [ 'application/merge-patch+json' ] # Enable PATCH operations
+
+  swagger:
+    versions: [ 3 ]
+    api_keys:
+      jwt:
+        name: Authorization
+        type: header
+
+  formats:
+    jsonld:
+      mime_types: [ 'application/ld+json' ]
+    json:
+      mime_types: [ 'application/json' ]
+    html:
+      mime_types: [ 'text/html' ]
+
+  # Updated HTTP cache configuration
+  http_cache:
+    invalidation:
+      enabled: true
+    public: true
+
+  collection:
+    pagination:
+      enabled: false

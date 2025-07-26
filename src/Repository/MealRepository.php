@@ -16,26 +16,24 @@ class MealRepository extends ServiceEntityRepository
         parent::__construct($registry, Meal::class);
     }
 
-        /**
-         * @return Meal[] Returns an array of Meal objects
-         */
-        public function findByCategory($category): array
-        {
-            return $this->createQueryBuilder('m')
-                ->join('m.categories', 'c')
-                ->where('c.name = :category')
-                ->setParameter('category', $category)
-                ->getQuery()
-                ->getResult();
+    /**
+     * @return Meal[] Returns an array of Meal objects
+     */
+    public function findByFilters(?int $restaurantId = null, ?string $category = null): array
+    {
+        $qb = $this->createQueryBuilder('m');
+
+        if ($restaurantId !== null) {
+            $qb->andWhere('m.restaurant = :restaurantId')
+                ->setParameter('restaurantId', $restaurantId);
         }
 
-    //    public function findOneBySomeField($value): ?Meal
-    //    {
-    //        return $this->createQueryBuilder('m')
-    //            ->andWhere('m.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        if ($category !== null) {
+            $qb->join('m.categories', 'c')
+                ->andWhere('c.name = :category')
+                ->setParameter('category', $category);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }

@@ -3,83 +3,85 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
-use Symfony\Component\Validator\Constraints as Assert;
 
 class RegisterController extends AbstractController
 {
-    #[Route('/api/register', name: 'register', methods: ['POST'])]
+    #[Route('/api/register', name: 'app_register', methods: ['POST'])]
     public function register(
-        Request $request,
-        EntityManagerInterface $entityManager,
+        Request                     $request,
         UserPasswordHasherInterface $passwordHasher,
-        ValidatorInterface $validator,
-    ): JsonResponse {
-        $data = json_decode($request->getContent(), true);
+        EntityManagerInterface      $entityManager,
+        SerializerInterface         $serializer,
+        ValidatorInterface          $validator,
+        UserRepository              $userRepository
+    ): JsonResponse
+    {
+        // Check if user is already authenticated
+        if ($this->getUser()) {
+            return $this->json([
+                'message' => 'You are already logged in'
+            ], Response::HTTP_BAD_REQUEST);
+        }
 
-        $constraints = new Assert\Collection([
-            'email' => [
-                new Assert\NotBlank(['message' => 'Email is required.']),
-                new Assert\Email(['message' => 'Invalid email format.']),
-            ],
-            'password' => [
-                new Assert\NotBlank(['message' => 'Password is required.']),
-                new Assert\Length([
-                    'min' => 8,
-                    'minMessage' => 'Password must be at least {{ limit }} characters long.',
-                ]),
-                new Assert\Regex([
-                    'pattern' => '/[A-Z]/',
-                    'message' => 'Password must contain at least one uppercase letter.',
-                ]),
-                new Assert\Regex([
-                    'pattern' => '/\d/',
-                    'message' => 'Password must contain at least one digit.',
-                ]),
-                new Assert\Regex([
-                    'pattern' => '/[\W_]/',
-                    'message' => 'Password must contain at least one special character.',
-                ]),
-            ],
-        ]);
+        try {
+            /** @var User $user */
+            $user = $serializer->deserialize($request->getContent(), User::class, 'json', [
+                'groups' => ['user:create', 'user:write']
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Invalid request data',
+                'error' => $e->getMessage()
+            ], Response::HTTP_BAD_REQUEST);
+        }
 
-        // Validate input
-        $violations = $validator->validate($data, $constraints);
+        // Check if email already exists
+        if ($userRepository->findOneBy(['email' => $user->getEmail()])) {
+            return $this->json([
+                'message' => 'Email already exists'
+            ], Response::HTTP_CONFLICT);
+        }
 
-        if (count($violations) > 0) {
-            $errors = [];
-            foreach ($violations as $violation) {
-                $errors[] = $violation->getMessage();
+        // Validate the user data with user:create validation group
+        $errors = $validator->validate($user, null, ['user:create']);
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[$error->getPropertyPath()] = $error->getMessage();
             }
-            return new JsonResponse(['error' => $errors], Response::HTTP_BAD_REQUEST);
+
+            return $this->json([
+                'message' => 'Validation failed',
+                'errors' => $errorMessages
+            ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Check if user already exists
-        if (!$entityManager->getRepository(User::class)->findOneBy(['email' => $data['email']])) {
-            $user = new User();
-            $user->setEmail($data['email']);
+        // Hash the password
+        $hashedPassword = $passwordHasher->hashPassword(
+            $user,
+            $user->getPassword()
+        );
+        $user->setPassword($hashedPassword);
 
-            // Create and set verification token
-            $verificationToken = Uuid::uuid4()->toString();
-            $user->setVerificationToken($verificationToken);
+        // Persist the user
+        $entityManager->persist($user);
+        $entityManager->flush();
 
-            // Hash the password and set it
-            $hashedPassword = $passwordHasher->hashPassword($user, $data['password']);
-            $user->setPassword($hashedPassword);
-
-            // Save the user to the database
-            $entityManager->persist($user);
-            $entityManager->flush();
-        }
-
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+        return $this->json([
+            'message' => 'User registered successfully',
+            'user' => $user
+        ], Response::HTTP_CREATED, [], [
+            'groups' => ['user:read']
+        ]);
     }
 }

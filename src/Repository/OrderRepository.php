@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Meal;
 use App\Entity\Order;
+use App\Enum\OrderStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -27,28 +28,25 @@ class OrderRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    //    /**
-    //     * @return Order[] Returns an array of Order objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('o')
-    //            ->andWhere('o.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('o.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    public function findByFilters(?int $userId = null, ?int $restaurantId = null, ?string $status = null): array
+    {
+        $qb = $this->createQueryBuilder('o');
 
-    //    public function findOneBySomeField($value): ?Order
-    //    {
-    //        return $this->createQueryBuilder('o')
-    //            ->andWhere('o.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        if ($userId !== null) {
+            $qb->andWhere('o.customer = :userId')
+                ->setParameter('userId', $userId);
+        }
+
+        if ($restaurantId !== null) {
+            $qb->andWhere('o.restaurant = :restaurantId')
+                ->setParameter('restaurantId', $restaurantId);
+        }
+
+        if ($status !== null) {
+            $qb->andWhere('o.status = :status')
+                ->setParameter('status', OrderStatus::from($status));
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }

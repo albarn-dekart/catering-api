@@ -7,4 +7,7 @@
 /.vscode/
 Thumbs.db
 .DS_Store
-/public/build/
+/public/
+###> lexik/jwt-authentication-bundle ###
+/config/jwt/*.pem
+###< lexik/jwt-authentication-bundle ###

@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\RecipientDetailsRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: RecipientDetailsRepository::class)]
 class RecipientDetails
@@ -14,25 +15,38 @@ class RecipientDetails
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 50)]
     private ?string $firstName = null;
 
     #[ORM\Column(length: 50)]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 50)]
     private ?string $secondName = null;
 
-    #[ORM\Column(length: 50)]
+    #[ORM\Column(length: 100)]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 100)]
     private ?string $city = null;
 
     #[ORM\Column(length: 10)]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 10)]
     private ?string $postCode = null;
 
-    #[ORM\Column(length: 9)]
+    #[ORM\Column(length: 20)]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 20)]
     private ?string $phoneNumber = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 255)]
     private ?string $address = null;
 
     #[ORM\OneToOne(inversedBy: 'recipientDetails', cascade: ['persist', 'remove'])]
-    private ?User $Owner = null;
+    #[ORM\JoinColumn(nullable: false)]
+    private ?User $user = null;
 
     public function getId(): ?int
     {
@@ -111,14 +125,14 @@ class RecipientDetails
         return $this;
     }
 
-    public function getOwner(): ?User
+    public function getUser(): ?User
     {
-        return $this->Owner;
+        return $this->user;
     }
 
-    public function setOwner(?User $Owner): static
+    public function setUser(?User $user): static
     {
-        $this->Owner = $Owner;
+        $this->user = $user;
 
         return $this;
     }

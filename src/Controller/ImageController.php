@@ -7,18 +7,22 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
+#[Route('/api')]
 class ImageController extends AbstractController
 {
-    #[Route('api/images/{filename}', name: 'serve_image', methods: ['GET'])]
+    #[Route('/images/{filename}', name: 'serve_image', methods: ['GET'])]
     public function serveImage(string $filename): Response
     {
         $imagePath = $this->getParameter('images_directory') . '/' . $filename;
 
-        if (!file_exists($imagePath)) {
-            throw $this->createNotFoundException('Image not found');
+        if (str_contains($filename, '..') || str_contains($filename, '/')) {
+            throw $this->createNotFoundException('Invalid filename.');
         }
 
-        // Return the image file directly
+        if (!file_exists($imagePath)) {
+            throw $this->createNotFoundException('Image not found.');
+        }
+
         return new BinaryFileResponse($imagePath);
     }
 }

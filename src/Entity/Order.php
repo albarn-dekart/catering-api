@@ -1,16 +1,32 @@
 <?php
 
-// src/Entity/Order.php
-
 namespace App\Entity;
 
 use App\Repository\OrderRepository;
 use App\Enum\OrderStatus;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\Put;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Delete;
+use Symfony\Component\Serializer\Annotation\Groups;
 
+#[ApiResource(
+    operations: [
+        new GetCollection(security: "is_granted('ROLE_ADMIN')"),
+        new Post(security: "is_granted('ROLE_USER')"),
+        new Get(security: "is_granted('ROLE_USER') and object.getCustomer() == user or is_granted('ROLE_RESTAURANT') and object.getRestaurant().isOwnedBy(user) or is_granted('ROLE_ADMIN')"),
+        new Put(security: "is_granted('ROLE_RESTAURANT') and object.getRestaurant().isOwnedBy(user) or is_granted('ROLE_ADMIN')"),
+        new Patch(security: "is_granted('ROLE_RESTAURANT') and object.getRestaurant().isOwnedBy(user) or is_granted('ROLE_ADMIN')"),
+    ],
+    normalizationContext: ['groups' => ['order:read']],
+    denormalizationContext: ['groups' => ['order:write']]
+)]
 #[ORM\Entity(repositoryClass: OrderRepository::class)]
 #[ORM\Table(name: '`order`')]
 class Order
@@ -21,29 +37,29 @@ class Order
     private ?int $id = null;
 
     #[ORM\ManyToOne(inversedBy: 'orders')]
-    private ?User $madeBy = null;
+    #[Groups(['order:read', 'order:write'])]
+    private ?User $customer = null;
 
-    #[ORM\Column(type: 'string', enumType: OrderStatus::class, options: ['default' => 'Unpaid'])]
+    #[ORM\Column(type: 'string', enumType: OrderStatus::class)]
+    #[Groups(['order:read', 'order:write'])]
     private OrderStatus $status = OrderStatus::Unpaid;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTimeInterface $startDate = null;
-
-    #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTimeInterface $endDate = null;
-
-    #[ORM\Column(type: 'json')]
-    private ?array $deliveryDays = [];
-
-    /**
-     * @var Collection<int, Meal>
-     */
     #[ORM\ManyToMany(targetEntity: Meal::class)]
+    #[Groups(['order:read', 'order:write'])]
     private Collection $meals;
+
+    #[ORM\ManyToOne(inversedBy: 'orders')]
+    #[Groups(['order:read', 'order:write'])]
+    private ?Restaurant $restaurant = null;
+
+    #[ORM\OneToMany(targetEntity: Delivery::class, mappedBy: 'order', orphanRemoval: true)]
+    #[Groups(['order:read'])]
+    private Collection $deliveries;
 
     public function __construct()
     {
         $this->meals = new ArrayCollection();
+        $this->deliveries = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -51,14 +67,14 @@ class Order
         return $this->id;
     }
 
-    public function getMadeBy(): ?User
+    public function getCustomer(): ?User
     {
-        return $this->madeBy;
+        return $this->customer;
     }
 
-    public function setMadeBy(?User $madeBy): static
+    public function setCustomer(?User $customer): static
     {
-        $this->madeBy = $madeBy;
+        $this->customer = $customer;
 
         return $this;
     }
@@ -71,42 +87,6 @@ class Order
     public function setStatus(OrderStatus $status): static
     {
         $this->status = $status;
-
-        return $this;
-    }
-
-    public function getStartDate(): ?\DateTimeInterface
-    {
-        return $this->startDate;
-    }
-
-    public function setStartDate(\DateTimeInterface $startDate): static
-    {
-        $this->startDate = $startDate;
-
-        return $this;
-    }
-
-    public function getEndDate(): ?\DateTimeInterface
-    {
-        return $this->endDate;
-    }
-
-    public function setEndDate(\DateTimeInterface $endDate): static
-    {
-        $this->endDate = $endDate;
-
-        return $this;
-    }
-
-    public function getDeliveryDays(): ?array
-    {
-        return $this->deliveryDays;
-    }
-
-    public function setDeliveryDays(array $deliveryDays): static
-    {
-        $this->deliveryDays = $deliveryDays;
 
         return $this;
     }
@@ -131,6 +111,48 @@ class Order
     public function removeMeal(Meal $meal): static
     {
         $this->meals->removeElement($meal);
+
+        return $this;
+    }
+
+    public function getRestaurant(): ?Restaurant
+    {
+        return $this->restaurant;
+    }
+
+    public function setRestaurant(?Restaurant $restaurant): static
+    {
+        $this->restaurant = $restaurant;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Delivery>
+     */
+    public function getDeliveries(): Collection
+    {
+        return $this->deliveries;
+    }
+
+    public function addDelivery(Delivery $delivery): static
+    {
+        if (!$this->deliveries->contains($delivery)) {
+            $this->deliveries->add($delivery);
+            $delivery->setOrder($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDelivery(Delivery $delivery): static
+    {
+        if ($this->deliveries->removeElement($delivery)) {
+            // set the owning side to null (unless already changed)
+            if ($delivery->getOrder() === $this) {
+                $delivery->setOrder(null);
+            }
+        }
 
         return $this;
     }

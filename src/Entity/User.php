@@ -6,47 +6,83 @@ use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Delete;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 
+#[ApiResource(
+    operations: [
+        new GetCollection(security: "is_granted('ROLE_ADMIN')"),
+        new Get(security: "is_granted('ROLE_ADMIN') or object == user"),
+        new Patch(security: "is_granted('ROLE_ADMIN') or object == user"),
+        new Delete(security: "is_granted('ROLE_ADMIN')")
+    ],
+    normalizationContext: ['groups' => ['user:read']],
+    denormalizationContext: ['groups' => ['user:write']]
+)]
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
-#[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
+#[UniqueEntity(fields: ['email'], message: 'There is already an account with this email')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['user:read'])]
     private ?int $id = null;
 
-    #[ORM\Column(length: 180)]
-    #[Groups(['user:read'])]
+    #[ORM\Column(length: 180, unique: true)]
+    #[Groups(['user:read', 'user:create'])]
+    #[Assert\NotBlank(groups: ['user:create'])]
+    #[Assert\Email(groups: ['user:create'])]
     private ?string $email = null;
 
     #[ORM\Column]
-    #[Groups(['user:read'])]
-    private array $roles = [];
-
-    #[ORM\Column]
+    #[Groups(['user:create', 'user:write'])]
+    #[Assert\NotBlank(groups: ['user:create'])]
+    #[Assert\Regex(
+        pattern: "/^(?=.*[A-Z])(?=.*\d).{8,}$/",
+        message: "Password must be 8+ chars with 1 uppercase and 1 digit.",
+        groups: ['user:create']
+    )]
     private ?string $password = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $verificationToken = null;
+    #[ORM\Column]
+    #[Groups(['user:read', 'user:write'])]
+    #[Assert\Choice(
+        choices: ['ROLE_USER', 'ROLE_ADMIN', 'ROLE_DRIVER', 'ROLE_RESTAURANT'],
+        multiple: true,
+        groups: ['user:create', 'user:write']
+    )]
+    private array $roles = [];
 
-    #[ORM\OneToOne(mappedBy: 'Owner', cascade: ['persist', 'remove'])]
+    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
+    #[Groups(['user:read', 'user:write'])]
     private ?RecipientDetails $recipientDetails = null;
 
-    /**
-     * @var Collection<int, Order>
-     */
-    #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'madeBy')]
+    #[ORM\OneToOne(mappedBy: 'owner', cascade: ['persist', 'remove'])]
+    #[Groups(['user:read'])]
+    private ?Restaurant $restaurant = null;
+
+    #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'customer', orphanRemoval: true)]
+    #[Groups(['user:read'])]
     private Collection $orders;
+
+    #[ORM\OneToMany(targetEntity: Delivery::class, mappedBy: 'driver')]
+    #[Groups(['user:read'])]
+    private Collection $deliveries;
 
     public function __construct()
     {
         $this->orders = new ArrayCollection();
+        $this->deliveries = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -68,7 +104,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getUserIdentifier(): string
     {
-        return (string) $this->email;
+        return (string)$this->email;
     }
 
     public function getRoles(): array
@@ -105,33 +141,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         // $this->plainPassword = null;
     }
 
-    public function getVerificationToken(): ?string
-    {
-        return $this->verificationToken;
-    }
-
-    public function setVerificationToken(?string $verificationToken): static
-    {
-        $this->verificationToken = $verificationToken;
-
-        return $this;
-    }
-
     public function getRecipientDetails(): ?RecipientDetails
     {
         return $this->recipientDetails;
     }
 
-    public function setRecipientDetails(?RecipientDetails $recipientDetails): static
+    public function setRecipientDetails(RecipientDetails $recipientDetails): static
     {
-        // unset the owning side of the relation if necessary
-        if ($recipientDetails == null && $this->recipientDetails != null) {
-            $this->recipientDetails->setOwner(null);
-        }
-
         // set the owning side of the relation if necessary
-        if ($recipientDetails != null && $recipientDetails->getOwner() !== $this) {
-            $recipientDetails->setOwner($this);
+        if ($recipientDetails->getUser() !== $this) {
+            $recipientDetails->setUser($this);
         }
 
         $this->recipientDetails = $recipientDetails;
@@ -151,7 +170,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if (!$this->orders->contains($order)) {
             $this->orders->add($order);
-            $order->setMadeBy($this);
+            $order->setCustomer($this);
         }
 
         return $this;
@@ -161,8 +180,60 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if ($this->orders->removeElement($order)) {
             // set the owning side to null (unless already changed)
-            if ($order->getMadeBy() === $this) {
-                $order->setMadeBy(null);
+            if ($order->getCustomer() === $this) {
+                $order->setCustomer(null);
+            }
+        }
+
+        return $this;
+    }
+
+    public function getRestaurant(): ?Restaurant
+    {
+        return $this->restaurant;
+    }
+
+    public function setRestaurant(?Restaurant $restaurant): static
+    {
+        // unset the owning side of the relation if necessary
+        if ($restaurant === null && $this->restaurant !== null) {
+            $this->restaurant->setOwner(null);
+        }
+
+        // set the owning side of the relation if necessary
+        if ($restaurant !== null && $restaurant->getOwner() !== $this) {
+            $restaurant->setOwner($this);
+        }
+
+        $this->restaurant = $restaurant;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Delivery>
+     */
+    public function getDeliveries(): Collection
+    {
+        return $this->deliveries;
+    }
+
+    public function addDelivery(Delivery $delivery): static
+    {
+        if (!$this->deliveries->contains($delivery)) {
+            $this->deliveries->add($delivery);
+            $delivery->setDriver($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDelivery(Delivery $delivery): static
+    {
+        if ($this->deliveries->removeElement($delivery)) {
+            // set the owning side to null (unless already changed)
+            if ($delivery->getDriver() === $this) {
+                $delivery->setDriver(null);
             }
         }
 
