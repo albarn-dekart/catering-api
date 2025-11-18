@@ -20,6 +20,10 @@ services:
     tags: [ 'controller.service_arguments' ]
 
   # Custom services and processors
-  App\Service\FileUploader:
+  App\Controller\StripeEventController:
     arguments:
-      $targetDirectory: '%images_directory%'
+      $stripeWebhookSecret: '%env(STRIPE_WEBHOOK_SECRET)%'
+
+  App\EventListener\JWTCreatedListener:
+    tags:
+      - { name: kernel.event_listener, event: lexik_jwt_authentication.on_jwt_created, method: onJWTCreated }

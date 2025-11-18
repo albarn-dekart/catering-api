@@ -1,80 +1,179 @@
 <?php
-
 namespace App\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
+use ApiPlatform\OpenApi\Model\Operation;
+use ApiPlatform\OpenApi\Model\RequestBody;
+use App\ApiResource\ImageUploadableInterface;
+use App\Controller\ImageUploadController;
 use App\Repository\MealRepository;
+use App\State\RestaurantOwnedStateProcessor; // 💡 Use the custom processor
+use ArrayObject;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\Serializer\Annotation\Groups;
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Post;
-use ApiPlatform\Metadata\Put;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Delete;
+use Symfony\Component\Validator\Constraints as Assert;
+use Vich\UploaderBundle\Mapping\Annotation as Vich;
 
 #[ApiResource(
     operations: [
-        new GetCollection(),
-        new Post(security: "is_granted('ROLE_RESTAURANT')"),
-        new Get(),
-        new Put(security: "is_granted('ROLE_RESTAURANT') and object.getRestaurant().isOwnedBy(user)"),
-        new Patch(security: "is_granted('ROLE_RESTAURANT') and object.getRestaurant().isOwnedBy(user)"),
-        new Delete(security: "is_granted('ROLE_RESTAURANT') and object.getRestaurant().isOwnedBy(user)"),
+        // ----------------------------------------
+        // Public Read Operations
+        // ----------------------------------------
+        new GetCollection(
+            normalizationContext: ['groups' => ['meal:read']]
+        ),
+        new Get(
+            normalizationContext: ['groups' => ['meal:read:detailed']]
+        ),
+        new GetCollection(
+            uriTemplate: '/restaurants/{restaurantId}/meals',
+            uriVariables: [
+                'restaurantId' => new Link(
+                    toProperty: 'restaurant',
+                    fromClass: Meal::class
+                ),
+            ],
+            normalizationContext: ['groups' => ['meal:read:detailed']]
+        ),
+        new GetCollection(
+            uriTemplate: '/meal_plans/{mealPlanId}/meals',
+            uriVariables: [
+                'mealPlanId' => new Link(
+                    toProperty: 'mealPlans',
+                    fromClass: Meal::class
+                ),
+            ],
+            normalizationContext: ['groups' => ['meal:read:detailed']]
+        ),
+
+        // ----------------------------------------
+        // Owner/Admin Write Operations
+        // ----------------------------------------
+        new Post(
+            denormalizationContext: ['groups' => ['meal:write']],
+            security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT')",
+            processor: RestaurantOwnedStateProcessor::class // 💡 Auto-set restaurant
+        ),
+        new Patch(
+        // Check if Admin OR if the object's restaurant is owned by the user
+            denormalizationContext: ['groups' => ['meal:write']],
+            security: "is_granted('ROLE_ADMIN') or object.getRestaurant().isOwnedBy(user)",
+        ),
+        new Delete(
+            security: "is_granted('ROLE_ADMIN') or object.getRestaurant().isOwnedBy(user)"
+        ),
+
+        // ----------------------------------------
+        // FILE UPLOAD Operation (Custom)
+        // ----------------------------------------
+        new Post(
+            uriTemplate: '/meals/{id}/image',
+            controller: ImageUploadController::class,
+            openapi: new Operation(
+                summary: 'Uploads an image for a Meal',
+                requestBody: new RequestBody(
+                    content: new ArrayObject([
+                        'multipart/form-data' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'imageFile' => [
+                                        'type' => 'string',
+                                        'format' => 'binary',
+                                        'description' => 'The image file to upload'
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ])
+                )
+            ),
+            security: "is_granted('ROLE_ADMIN') or object.getRestaurant().isOwnedBy(user)",
+            deserialize: false
+        )
     ],
-    normalizationContext: ['groups' => ['meal:read']],
-    denormalizationContext: ['groups' => ['meal:write']]
+    normalizationContext: ['groups' => ['meal:read']]
 )]
+// Add filters for public browsing and sorting
+#[ApiFilter(SearchFilter::class, properties: ['name' => 'partial', 'restaurant' => 'exact'])]
+#[ApiFilter(OrderFilter::class, properties: ['price', 'calories', 'name'])]
 #[ORM\Entity(repositoryClass: MealRepository::class)]
-class Meal
+#[Vich\Uploadable]
+class Meal implements ImageUploadableInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['meal:read', 'meal:read:detailed', 'meal_plan:read_detailed'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
-    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
+    #[Assert\NotBlank]
+    #[Groups(['meal:read', 'meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
     private ?string $name = null;
 
-    #[ORM\ManyToMany(targetEntity: Category::class, mappedBy: 'meals')]
-    #[Groups(['meal:read', 'meal:write'])]
-    private Collection $categories;
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[Groups(['meal:read', 'meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
+    private ?string $description = null;
 
-    #[ORM\ManyToMany(targetEntity: MealPlan::class, mappedBy: 'meals')]
-    private Collection $mealPlans;
-
+    // ... (Nutritional fields: calories, protein, fat, carbs) ...
     #[ORM\Column(type: Types::FLOAT)]
-    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
+    #[Groups(['meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
     private ?float $calories = null;
 
     #[ORM\Column(type: Types::FLOAT)]
-    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
+    #[Groups(['meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
     private ?float $protein = null;
 
     #[ORM\Column(type: Types::FLOAT)]
-    #[Groups(['meal:read', 'meal:write', 'meal:plan:read'])]
+    #[Groups(['meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
     private ?float $fat = null;
 
     #[ORM\Column(type: Types::FLOAT)]
-    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
+    #[Groups(['meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
     private ?float $carbs = null;
 
-    #[ORM\Column(type: Types::FLOAT)]
-    #[Groups(['meal:read', 'meal:write', 'meal_plan:read'])]
-    private ?float $price = null;
+    #[ORM\Column]
+    #[Assert\GreaterThanOrEqual(value: 0)]
+    #[Groups(['meal:read', 'meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
+    private ?int $price = null; //
 
     #[ORM\ManyToOne(inversedBy: 'meals')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['meal:read', 'meal:write'])]
+    #[Groups(['meal:read', 'meal:read:detailed', 'meal:write'])]
     private ?Restaurant $restaurant = null;
+
+    #[ORM\ManyToMany(targetEntity: MealPlan::class, mappedBy: 'meals')]
+    #[Groups(['meal:read:detailed'])]
+    private Collection $mealPlans;
+
+    // --- Image Upload Fields ---
+    #[Vich\UploadableField(mapping: 'meal_image', fileNameProperty: 'imagePath')]
+    private ?File $imageFile = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $imagePath = null;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?DateTimeInterface $updatedAt;
 
     public function __construct()
     {
-        $this->categories = new ArrayCollection();
         $this->mealPlans = new ArrayCollection();
     }
 
@@ -82,37 +181,40 @@ class Meal
     {
         return $this->id;
     }
-
-    public function getCategories(): Collection
+    #[Groups(['meal:read', 'meal:read:detailed', 'meal_plan:read_detailed'])]
+    public function getImageUrl(): ?string
     {
-        return $this->categories;
+        if ($this->getImagePath()) {
+            return '/images/meals/' . $this->getImagePath();
+        }
+        return null;
     }
 
-    public function addCategory(Category $category): static
+
+
+    public function getImageFile(): ?File
     {
-        if (!$this->categories->contains($category)) {
-            $this->categories->add($category);
-            $category->addMeal($this);
+        return $this->imageFile;
+    }
+
+    public function setImageFile(?File $imageFile): static
+    {
+        $this->imageFile = $imageFile;
+        if (null !== $imageFile) {
+            $this->updatedAt = new DateTimeImmutable();
         }
 
         return $this;
     }
 
-    public function removeCategory(Category $category): static
+    public function getImagePath(): ?string
     {
-        if ($this->categories->removeElement($category)) {
-            $category->removeMeal($this);
-        }
-
-        return $this;
+        return $this->imagePath;
     }
 
-    public function clearCategories(): static
+    public function setImagePath(?string $imagePath): static
     {
-        foreach ($this->categories as $category) {
-            $category->removeMeal($this);
-        }
-        $this->categories->clear();
+        $this->imagePath = $imagePath;
 
         return $this;
     }
@@ -165,12 +267,12 @@ class Meal
         return $this;
     }
 
-    public function getPrice(): ?float
+    public function getPrice(): ?int
     {
         return $this->price;
     }
 
-    public function setPrice(float $price): static
+    public function setPrice(int $price): static
     {
         $this->price = $price;
 
@@ -185,6 +287,19 @@ class Meal
     public function setName(string $name): static
     {
         $this->name = $name;
+
+        return $this;
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(?string $description): static
+    {
+        $this->description = $description;
+
         return $this;
     }
 

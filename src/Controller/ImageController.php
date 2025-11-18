@@ -4,25 +4,24 @@ namespace App\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-#[Route('/api')]
 class ImageController extends AbstractController
 {
-    #[Route('/images/{filename}', name: 'serve_image', methods: ['GET'])]
-    public function serveImage(string $filename): Response
+    #[Route('/api/images/{folder}/{filename}', name: 'serve_image', requirements: ['filename' => '.+'])]
+    public function serveImage(string $folder, string $filename): BinaryFileResponse
     {
-        $imagePath = $this->getParameter('images_directory') . '/' . $filename;
+        $path = $this->getParameter('images_directory') . "/$folder/$filename";
 
-        if (str_contains($filename, '..') || str_contains($filename, '/')) {
-            throw $this->createNotFoundException('Invalid filename.');
+        if (!file_exists($path)) {
+            throw new NotFoundHttpException("Image not found.");
         }
 
-        if (!file_exists($imagePath)) {
-            throw $this->createNotFoundException('Image not found.');
-        }
+        $response = new BinaryFileResponse($path);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $filename);
 
-        return new BinaryFileResponse($imagePath);
+        return $response;
     }
 }

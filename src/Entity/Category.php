@@ -2,54 +2,82 @@
 
 namespace App\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
 use App\Repository\CategoryRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Validator\Constraints as Assert;
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Post;
-use ApiPlatform\Metadata\Put;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Delete;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ApiResource(
     operations: [
-        new GetCollection(),
-        new Post(security: "is_granted('ROLE_RESTAURANT')"),
-        new Get(),
-        new Put(security: "is_granted('ROLE_RESTAURANT')"),
-        new Patch(security: "is_granted('ROLE_RESTAURANT')"),
-        new Delete(security: "is_granted('ROLE_ADMIN')"),
+        // ----------------------------------------
+        // Public Read Operations (Anyone can view)
+        // ----------------------------------------
+        new GetCollection(
+            normalizationContext: ['groups' => ['category:read']]
+        ),
+        new Get(
+            normalizationContext: ['groups' => ['category:read:detailed']]
+        ),
+
+        // ----------------------------------------
+        // Admin Write Operations (Only Admin can manage)
+        // ----------------------------------------
+        new Post(
+            denormalizationContext: ['groups' => ['category:write']],
+            security: "is_granted('ROLE_ADMIN')"
+        ),
+        new Patch(
+            denormalizationContext: ['groups' => ['category:write']],
+            security: "is_granted('ROLE_ADMIN')"
+        ),
+        new Delete(
+            security: "is_granted('ROLE_ADMIN')"
+        ),
     ],
-    normalizationContext: ['groups' => ['category:read']],
-    denormalizationContext: ['groups' => ['category:write']]
+    // Default visibility
+    normalizationContext: ['groups' => ['category:read']]
 )]
+// Allows filtering on the name
+#[ApiFilter(SearchFilter::class, properties: ['name' => 'partial'])]
 #[ORM\Entity(repositoryClass: CategoryRepository::class)]
 class Category
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['category:read', 'category:read:detailed', 'restaurant:read', 'meal_plan:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
-    #[Groups(['category:read', 'category:write', 'meal:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 50)]
+    #[Groups(['category:read', 'category:read:detailed', 'restaurant:read', 'meal_plan:read', 'category:write'])]
     private ?string $name = null;
 
-    #[ORM\ManyToMany(targetEntity: Meal::class, inversedBy: 'categories')]
-    #[Groups(['category:read'])]
-    private Collection $meals;
+    #[ORM\ManyToMany(targetEntity: Restaurant::class, mappedBy: 'categories')]
+    // Read only via detailed category view
+    #[Groups(['category:read:detailed'])]
+    private Collection $restaurants;
 
+    #[ORM\ManyToMany(targetEntity: MealPlan::class, mappedBy: 'categories')]
+    // Read only via detailed category view
+    #[Groups(['category:read:detailed'])]
+    private Collection $mealPlans;
 
     public function __construct()
     {
-        $this->meals = new ArrayCollection();
+        $this->restaurants = new ArrayCollection();
+        $this->mealPlans = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -70,27 +98,54 @@ class Category
     }
 
     /**
-     * @return Collection<int, Meal>
+     * @return Collection<int, Restaurant>
      */
-    public function getMeals(): Collection
+    public function getRestaurants(): Collection
     {
-        return $this->meals;
+        return $this->restaurants;
     }
 
-    public function addMeal(Meal $meal): static
+    public function addRestaurant(Restaurant $restaurant): static
     {
-        if (!$this->meals->contains($meal)) {
-            $this->meals->add($meal);
-            $meal->addCategory($this);
+        if (!$this->restaurants->contains($restaurant)) {
+            $this->restaurants->add($restaurant);
+            $restaurant->addCategory($this);
         }
 
         return $this;
     }
 
-    public function removeMeal(Meal $meal): static
+    public function removeRestaurant(Restaurant $restaurant): static
     {
-        if ($this->meals->removeElement($meal)) {
-            $meal->removeCategory($this);
+        if ($this->restaurants->removeElement($restaurant)) {
+            $restaurant->removeCategory($this);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, MealPlan>
+     */
+    public function getMealPlans(): Collection
+    {
+        return $this->mealPlans;
+    }
+
+    public function addMealPlan(MealPlan $mealPlan): static
+    {
+        if (!$this->mealPlans->contains($mealPlan)) {
+            $this->mealPlans->add($mealPlan);
+            $mealPlan->addCategory($this);
+        }
+
+        return $this;
+    }
+
+    public function removeMealPlan(MealPlan $mealPlan): static
+    {
+        if ($this->mealPlans->removeElement($mealPlan)) {
+            $mealPlan->removeCategory($this);
         }
 
         return $this;

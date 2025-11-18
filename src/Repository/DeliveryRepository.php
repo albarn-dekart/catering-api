@@ -15,21 +15,4 @@ class DeliveryRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Delivery::class);
     }
-
-    public function findByFilters(?int $status = null, ?int $driver_id = null): array
-    {
-        $qb = $this->createQueryBuilder('o');
-
-        if ($status !== null) {
-            $qb->andWhere('o.status = :status')
-                ->setParameter('status', $status);
-        }
-
-        if ($driver_id !== null) {
-            $qb->andWhere('o.driver = :driver_id')
-                ->setParameter('driver_id', $driver_id);
-        }
-
-        return $qb->getQuery()->getResult();
-    }
 }

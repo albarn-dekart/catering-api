@@ -10,40 +10,30 @@ security:
         property: email
 
   firewalls:
-    api:
-      pattern: ^/api
+    login:
+      pattern: ^/api/login
       stateless: true
-      entry_point: jwt
       json_login:
         check_path: /api/login
         username_path: email
-        password_path: password
         success_handler: lexik_jwt_authentication.handler.authentication_success
         failure_handler: lexik_jwt_authentication.handler.authentication_failure
+    public_api:
+      pattern: ^/api/(restaurants|categories|meal_plans)
+      stateless: true
+      security: false
+    api:
+      pattern: ^/api
+      stateless: true
       jwt: ~
-      refresh_jwt:
-        check_path: /api/token/refresh
+      
       logout:
         path: /api/logout
 
   access_control:
-    # Public routes
-    - path: ^/api/(login|token/refresh)
-      roles: PUBLIC_ACCESS
-
-    # User creation (public)
-    - path: ^/api/users$
-      methods: [ POST ]
-      roles: PUBLIC_ACCESS
-
-    # Secure all other user endpoints
-    - path: ^/api/users
-      roles: ROLE_USER
-
-    # Admin-only routes
-    - path: ^/api/admin
-      roles: ROLE_ADMIN
-
+    - { path: ^/api/(login|register), roles: PUBLIC_ACCESS }
+    - { path: ^/api/(restaurants|categories|meal_plans), roles: PUBLIC_ACCESS }
+    - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 when@test:
   security:
     password_hashers:
