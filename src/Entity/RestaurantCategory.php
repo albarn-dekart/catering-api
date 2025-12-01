@@ -8,14 +8,14 @@ use ApiPlatform\Metadata\GraphQl\DeleteMutation;
 use ApiPlatform\Metadata\GraphQl\Mutation;
 use ApiPlatform\Metadata\GraphQl\Query;
 use ApiPlatform\Metadata\GraphQl\QueryCollection;
-use App\Repository\CategoryRepository;
+use App\Repository\RestaurantCategoryRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
-#[ORM\Entity(repositoryClass: CategoryRepository::class)]
+#[ORM\Entity(repositoryClass: RestaurantCategoryRepository::class)]
 #[ApiResource(
     operations: [],
     normalizationContext: ['groups' => ['read']],
@@ -28,7 +28,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         new DeleteMutation(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT')", name: 'delete')
     ],
 )]
-class Category
+class RestaurantCategory
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -41,21 +41,14 @@ class Category
     #[Groups(['read', 'create', 'update'])]
     private ?string $name = null;
 
-    #[ORM\ManyToMany(targetEntity: Restaurant::class, mappedBy: 'categories')]
+    #[ORM\ManyToMany(targetEntity: Restaurant::class, mappedBy: 'restaurantCategories')]
     #[ApiProperty(readableLink: true)]
     #[Groups(['read'])]
     private Collection $restaurants;
 
-    #[ORM\ManyToMany(targetEntity: MealPlan::class, mappedBy: 'categories')]
-    #[ApiProperty(readableLink: true)]
-    #[Groups(['read'])]
-    private Collection $mealPlans;
-
-
     public function __construct()
     {
         $this->restaurants = new ArrayCollection();
-        $this->mealPlans = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -87,7 +80,7 @@ class Category
     {
         if (!$this->restaurants->contains($restaurant)) {
             $this->restaurants->add($restaurant);
-            $restaurant->addCategory($this);
+            $restaurant->addRestaurantCategory($this);
         }
 
         return $this;
@@ -96,34 +89,7 @@ class Category
     public function removeRestaurant(Restaurant $restaurant): static
     {
         if ($this->restaurants->removeElement($restaurant)) {
-            $restaurant->removeCategory($this);
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, MealPlan>
-     */
-    public function getMealPlans(): Collection
-    {
-        return $this->mealPlans;
-    }
-
-    public function addMealPlan(MealPlan $mealPlan): static
-    {
-        if (!$this->mealPlans->contains($mealPlan)) {
-            $this->mealPlans->add($mealPlan);
-            $mealPlan->addCategory($this);
-        }
-
-        return $this;
-    }
-
-    public function removeMealPlan(MealPlan $mealPlan): static
-    {
-        if ($this->mealPlans->removeElement($mealPlan)) {
-            $mealPlan->removeCategory($this);
+            $restaurant->removeRestaurantCategory($this);
         }
 
         return $this;

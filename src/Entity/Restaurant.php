@@ -73,10 +73,10 @@ class Restaurant implements ImageUploadableInterface
     #[Groups(['read'])]
     private Collection $users;
 
-    #[ORM\ManyToMany(targetEntity: Category::class, inversedBy: 'restaurants')]
+    #[ORM\ManyToMany(targetEntity: RestaurantCategory::class, inversedBy: 'restaurants')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read', 'update'])]
-    private Collection $categories;
+    private Collection $restaurantCategories;
 
     #[ORM\OneToMany(targetEntity: Meal::class, mappedBy: 'restaurant', orphanRemoval: true)]
     #[ApiProperty(readableLink: true)]
@@ -104,7 +104,7 @@ class Restaurant implements ImageUploadableInterface
     public function __construct()
     {
         $this->users = new ArrayCollection();
-        $this->categories = new ArrayCollection();
+        $this->restaurantCategories = new ArrayCollection();
         $this->meals = new ArrayCollection();
         $this->mealPlans = new ArrayCollection();
         $this->deliveries = new ArrayCollection();
@@ -244,25 +244,25 @@ class Restaurant implements ImageUploadableInterface
     }
 
     /**
-     * @return Collection<int, Category>
+     * @return Collection<int, RestaurantCategory>
      */
-    public function getCategories(): Collection
+    public function getRestaurantCategories(): Collection
     {
-        return $this->categories;
+        return $this->restaurantCategories;
     }
 
-    public function addCategory(Category $category): static
+    public function addRestaurantCategory(RestaurantCategory $restaurantCategory): static
     {
-        if (!$this->categories->contains($category)) {
-            $this->categories->add($category);
+        if (!$this->restaurantCategories->contains($restaurantCategory)) {
+            $this->restaurantCategories->add($restaurantCategory);
         }
 
         return $this;
     }
 
-    public function removeCategory(Category $category): static
+    public function removeRestaurantCategory(RestaurantCategory $restaurantCategory): static
     {
-        $this->categories->removeElement($category);
+        $this->restaurantCategories->removeElement($restaurantCategory);
 
         return $this;
     }

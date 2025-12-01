@@ -47,10 +47,10 @@ class MealPlan implements ImageUploadableInterface
     #[Groups(['read', 'create', 'update'])]
     private Collection $meals;
 
-    #[ORM\ManyToMany(targetEntity: Category::class, inversedBy: 'mealPlans')]
+    #[ORM\ManyToMany(targetEntity: DietCategory::class, inversedBy: 'mealPlans')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read', 'create', 'update'])]
-    private Collection $categories;
+    private Collection $dietCategories;
 
     #[ORM\Column(length: 50)]
     #[Assert\NotBlank]
@@ -84,7 +84,7 @@ class MealPlan implements ImageUploadableInterface
     public function __construct()
     {
         $this->meals = new ArrayCollection();
-        $this->categories = new ArrayCollection();
+        $this->dietCategories = new ArrayCollection();
         $this->updatedAt = new DateTimeImmutable();
     }
 
@@ -131,25 +131,25 @@ class MealPlan implements ImageUploadableInterface
     }
 
     /**
-     * @return Collection<int, Category>
+     * @return Collection<int, DietCategory>
      */
-    public function getCategories(): Collection
+    public function getDietCategories(): Collection
     {
-        return $this->categories;
+        return $this->dietCategories;
     }
 
-    public function addCategory(Category $category): static
+    public function addDietCategory(DietCategory $dietCategory): static
     {
-        if (!$this->categories->contains($category)) {
-            $this->categories->add($category);
+        if (!$this->dietCategories->contains($dietCategory)) {
+            $this->dietCategories->add($dietCategory);
         }
 
         return $this;
     }
 
-    public function removeCategory(Category $category): static
+    public function removeDietCategory(DietCategory $dietCategory): static
     {
-        $this->categories->removeElement($category);
+        $this->dietCategories->removeElement($dietCategory);
 
         return $this;
     }
@@ -242,6 +242,4 @@ class MealPlan implements ImageUploadableInterface
         }
         return $price;
     }
-
-
 }
