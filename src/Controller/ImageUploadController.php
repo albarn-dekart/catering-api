@@ -12,9 +12,17 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
+use App\Entity\Meal;
+use App\Entity\MealPlan;
+use App\Entity\Restaurant;
+use Symfony\Component\Routing\Annotation\Route;
+
 #[AsController]
 class ImageUploadController extends AbstractController
 {
+    #[Route('/api/meals/{id}/image', name: 'meal_image_upload', defaults: ['_api_resource_class' => Meal::class], methods: ['POST'])]
+    #[Route('/api/restaurants/{id}/image', name: 'restaurant_image_upload', defaults: ['_api_resource_class' => Restaurant::class], methods: ['POST'])]
+    #[Route('/api/meal_plans/{id}/image', name: 'meal_plan_image_upload', defaults: ['_api_resource_class' => MealPlan::class], methods: ['POST'])]
     /**
      * @throws OptimisticLockException
      * @throws ORMException
@@ -25,8 +33,7 @@ class ImageUploadController extends AbstractController
         string $id,
         string $_api_resource_class,
         string $serializationGroup = null
-    ): Response
-    {
+    ): Response {
         $entity = $entityManager->find($_api_resource_class, $id);
 
         if (!$entity) {

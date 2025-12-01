@@ -2,15 +2,13 @@
 
 namespace App\Entity;
 
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Delete;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\GraphQl\DeleteMutation;
+use ApiPlatform\Metadata\GraphQl\Mutation;
+use ApiPlatform\Metadata\GraphQl\Query;
+use ApiPlatform\Metadata\GraphQl\QueryCollection;
 use App\Repository\UserRepository;
-use App\State\MeStateProvider;
-use App\State\UserProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -20,95 +18,49 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
-#[ApiResource(
-    operations: [
-        // ----------------------------------------
-        // Admin Operations (Full Power)
-        // ----------------------------------------
-        new GetCollection(
-            normalizationContext: ['groups' => ['user:read:admin']],
-            security: "is_granted('ROLE_ADMIN')"
-        ),
-        new Get(
-            uriTemplate: '/users/{id}',
-            normalizationContext: ['groups' => ['user:read:admin']],
-            security: "is_granted('ROLE_ADMIN')"
-        ),
-        new Patch(
-            uriTemplate: '/users/{id}',
-            normalizationContext: ['groups' => ['user:update:admin']],
-            security: "is_granted('ROLE_ADMIN')"
-        ),
-
-        // ----------------------------------------
-        // User "Me" Operations (Self-Management)
-        // ----------------------------------------
-        new Get(
-            uriTemplate: '/me', // A common alias for the current user
-            normalizationContext: ['groups' => ['user:read:self']],
-            provider: MeStateProvider::class
-        ),
-        new Patch(
-            uriTemplate: '/me', // Patch the current user
-            normalizationContext: ['groups' => ['user:read:self']],
-            denormalizationContext: ['groups' => ['user:update:self']],
-            provider: MeStateProvider::class,
-            processor: UserProcessor::class // Handles password/data changes
-        ),
-
-        // ----------------------------------------
-        // Public Registration
-        // ----------------------------------------
-        new Post(
-            uriTemplate: '/register', // Customer registration
-            normalizationContext: ['groups' => ['user:read:self']],
-            denormalizationContext: ['groups' => ['user:create:customer']],
-            validationContext: ['groups' => ['user:create']], // Use existing validation
-            processor: UserProcessor::class
-        ),
-        new Post(
-            uriTemplate: '/register/owner', // Restaurant Owner registration
-            normalizationContext: ['groups' => ['user:read:self']],
-            denormalizationContext: ['groups' => ['user:create:restaurant']],
-            validationContext: ['groups' => ['user:create:restaurant']], // Use existing validation
-            processor: UserProcessor::class
-        ),
-
-        // ----------------------------------------
-        // Admin Delete
-        // ----------------------------------------
-        new Delete(
-            security: "is_granted('ROLE_ADMIN')"
-        )
-        // 💡 Password change should be a custom operation
-    ],
-    // Default normalization is admin-only for security
-    normalizationContext: ['groups' => ['user:read:admin']],
-)]
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
 #[UniqueEntity(fields: ['email'], message: 'There is already an account with this email')]
+#[ApiResource(
+    operations: [],
+    normalizationContext: ['groups' => ['read']],
+    denormalizationContext: ['groups' => ['create', 'update']],
+    graphQlOperations: [
+        new QueryCollection(security: "is_granted('ROLE_ADMIN')"),
+        new Mutation(
+            security: "is_granted('PUBLIC_ACCESS')",
+            validationContext: ['groups' => ['create']],
+            name: 'create'
+        ),
+        new Query(security: "is_granted('IS_AUTHENTICATED_FULLY') and object == user or is_granted('ROLE_ADMIN')"),
+        new Mutation(
+            security: "is_granted('IS_AUTHENTICATED_FULLY') and object == user or is_granted('ROLE_ADMIN')",
+            validationContext: ['groups' => ['update']],
+            name: 'update'
+        ),
+        new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
+    ],
+)]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['user:read:admin', 'user:read:self'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 180, unique: true)]
-    #[Assert\NotBlank(groups: ['user:create', 'user:create:restaurant'])]
-    #[Assert\Email(groups: ['user:create', 'user:create:restaurant'])]
-    #[Groups(['user:read:admin', 'user:read:self', 'user:create:customer', 'user:create:restaurant', 'user:update:self'])]
+    #[Assert\NotBlank(groups: ['create', 'user:create:restaurant'])]
+    #[Assert\Email(groups: ['create', 'user:create:restaurant'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?string $email = null;
 
-    #[Assert\NotBlank(groups: ['user:create', 'user:create:restaurant'])]
+    #[Assert\NotBlank(groups: ['create', 'user:create:restaurant'])]
     #[Assert\Regex(
         pattern: "/^(?=.*[A-Z])(?=.*\d).{8,}$/",
         message: 'Password must be 8+ chars with 1 uppercase and 1 digit.',
-        groups: ['user:create', 'user:create:restaurant']
+        groups: ['create', 'user:create:restaurant']
     )]
-    #[Groups(['user:create:customer', 'user:create:restaurant', 'user:change_password'])]
+    #[Groups(['create', 'update'])]
     private ?string $plainPassword = null;
 
     #[Assert\NotBlank(groups: ['user:change_password'])]
@@ -122,32 +74,44 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Assert\Choice(
         choices: ['ROLE_CUSTOMER', 'ROLE_ADMIN', 'ROLE_DRIVER', 'ROLE_RESTAURANT'],
         multiple: true,
-        groups: ['user:create', 'user:write']
+        groups: ['create', 'user:write']
     )]
-    #[Groups(['user:read:admin', 'user:read:self', 'user:update:admin'])]
+    #[Groups(['read', 'create', 'update'])]
     private array $roles = [];
 
-    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
-    #[Groups(['user:read:self', 'user:update:self'])]
+    /**
+     * For ROLE_RESTAURANT: their owned restaurant
+     * For ROLE_DRIVER: the restaurant they work for
+     * Null for customers and admins
+     */
+    #[ORM\ManyToOne(targetEntity: Restaurant::class, inversedBy: 'users')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     #[Assert\Valid]
-    private ?RecipientDetails $recipientDetails = null;
-
-    #[ORM\OneToOne(mappedBy: 'owner', cascade: ['persist', 'remove'])]
-    #[Assert\Valid]
-    #[Groups(['user:read:self', 'user:create:restaurant'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
+    #[Groups(['read', 'create', 'update'])]
     private ?Restaurant $restaurant = null;
 
     #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'customer', orphanRemoval: true)]
+    #[ApiProperty(readableLink: true)]
+    #[Groups(['read'])]
     private Collection $orders;
 
     #[ORM\OneToMany(targetEntity: Delivery::class, mappedBy: 'driver')]
+    #[ApiProperty(readableLink: true)]
+    #[Groups(['read'])]
     private Collection $deliveries;
+
+    #[ORM\OneToMany(targetEntity: Address::class, mappedBy: 'user', orphanRemoval: true)]
+    #[ApiProperty(readableLink: true)]
+    #[Groups(['read'])]
+    private Collection $addresses;
 
 
     public function __construct()
     {
         $this->orders = new ArrayCollection();
         $this->deliveries = new ArrayCollection();
+        $this->addresses = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -233,23 +197,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getRecipientDetails(): ?RecipientDetails
-    {
-        return $this->recipientDetails;
-    }
-
-    public function setRecipientDetails(RecipientDetails $recipientDetails): static
-    {
-        // set the owning side of the relation if necessary
-        if ($recipientDetails->getUser() !== $this) {
-            $recipientDetails->setUser($this);
-        }
-
-        $this->recipientDetails = $recipientDetails;
-
-        return $this;
-    }
-
     /**
      * @return Collection<int, Order>
      */
@@ -317,17 +264,37 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function setRestaurant(?Restaurant $restaurant): static
     {
-        // unset the owning side of the relation if necessary
-        if (null === $restaurant && null !== $this->restaurant) {
-            $this->restaurant->setOwner(null);
-        }
-
-        // set the owning side of the relation if necessary
-        if (null !== $restaurant && $restaurant->getOwner() !== $this) {
-            $restaurant->setOwner($this);
-        }
-
         $this->restaurant = $restaurant;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Address>
+     */
+    public function getAddresses(): Collection
+    {
+        return $this->addresses;
+    }
+
+    public function addAddress(Address $address): static
+    {
+        if (!$this->addresses->contains($address)) {
+            $this->addresses->add($address);
+            $address->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeAddress(Address $address): static
+    {
+        if ($this->addresses->removeElement($address)) {
+            // set the owning side to null (unless already changed)
+            if ($address->getUser() === $this) {
+                $address->setUser(null);
+            }
+        }
 
         return $this;
     }

@@ -18,10 +18,6 @@ security:
         username_path: email
         success_handler: lexik_jwt_authentication.handler.authentication_success
         failure_handler: lexik_jwt_authentication.handler.authentication_failure
-    public_api:
-      pattern: ^/api/(restaurants|categories|meal_plans)
-      stateless: true
-      security: false
     api:
       pattern: ^/api
       stateless: true
@@ -31,7 +27,7 @@ security:
         path: /api/logout
 
   access_control:
-    - { path: ^/api/(login|register), roles: PUBLIC_ACCESS }
+    - { path: ^/api/(graphql|login|register|images), roles: PUBLIC_ACCESS }
     - { path: ^/api/(restaurants|categories|meal_plans), roles: PUBLIC_ACCESS }
     - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 when@test:

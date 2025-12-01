@@ -2,14 +2,12 @@
 
 namespace App\Entity;
 
-use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
-use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Delete;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\GraphQl\DeleteMutation;
+use ApiPlatform\Metadata\GraphQl\Mutation;
+use ApiPlatform\Metadata\GraphQl\Query;
+use ApiPlatform\Metadata\GraphQl\QueryCollection;
 use App\Repository\CategoryRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -17,62 +15,42 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
-#[ApiResource(
-    operations: [
-        // ----------------------------------------
-        // Public Read Operations (Anyone can view)
-        // ----------------------------------------
-        new GetCollection(
-            normalizationContext: ['groups' => ['category:read']]
-        ),
-        new Get(
-            normalizationContext: ['groups' => ['category:read:detailed']]
-        ),
-
-        // ----------------------------------------
-        // Admin Write Operations (Only Admin can manage)
-        // ----------------------------------------
-        new Post(
-            denormalizationContext: ['groups' => ['category:write']],
-            security: "is_granted('ROLE_ADMIN')"
-        ),
-        new Patch(
-            denormalizationContext: ['groups' => ['category:write']],
-            security: "is_granted('ROLE_ADMIN')"
-        ),
-        new Delete(
-            security: "is_granted('ROLE_ADMIN')"
-        ),
-    ],
-    // Default visibility
-    normalizationContext: ['groups' => ['category:read']]
-)]
-// Allows filtering on the name
-#[ApiFilter(SearchFilter::class, properties: ['name' => 'partial'])]
 #[ORM\Entity(repositoryClass: CategoryRepository::class)]
+#[ApiResource(
+    operations: [],
+    normalizationContext: ['groups' => ['read']],
+    denormalizationContext: ['groups' => ['create', 'update']],
+    graphQlOperations: [
+        new QueryCollection(security: "is_granted('PUBLIC_ACCESS')"),
+        new Query(security: "is_granted('PUBLIC_ACCESS')"),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT')", name: 'create'),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT')", name: 'update'),
+        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT')", name: 'delete')
+    ],
+)]
 class Category
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['category:read', 'category:read:detailed', 'restaurant:read', 'meal_plan:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
     #[Assert\NotBlank]
     #[Assert\Length(max: 50)]
-    #[Groups(['category:read', 'category:read:detailed', 'restaurant:read', 'meal_plan:read', 'category:write'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?string $name = null;
 
     #[ORM\ManyToMany(targetEntity: Restaurant::class, mappedBy: 'categories')]
-    // Read only via detailed category view
-    #[Groups(['category:read:detailed'])]
+    #[ApiProperty(readableLink: true)]
+    #[Groups(['read'])]
     private Collection $restaurants;
 
     #[ORM\ManyToMany(targetEntity: MealPlan::class, mappedBy: 'categories')]
-    // Read only via detailed category view
-    #[Groups(['category:read:detailed'])]
+    #[ApiProperty(readableLink: true)]
+    #[Groups(['read'])]
     private Collection $mealPlans;
+
 
     public function __construct()
     {

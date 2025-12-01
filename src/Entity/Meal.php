@@ -1,23 +1,15 @@
 <?php
+
 namespace App\Entity;
 
-use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
-use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
-use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Delete;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Link;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Post;
-use ApiPlatform\OpenApi\Model\Operation;
-use ApiPlatform\OpenApi\Model\RequestBody;
 use App\ApiResource\ImageUploadableInterface;
-use App\Controller\ImageUploadController;
+use ApiPlatform\Metadata\GraphQl\DeleteMutation;
+use ApiPlatform\Metadata\GraphQl\Mutation;
+use ApiPlatform\Metadata\GraphQl\Query;
+use ApiPlatform\Metadata\GraphQl\QueryCollection;
 use App\Repository\MealRepository;
-use App\State\RestaurantOwnedStateProcessor; // 💡 Use the custom processor
-use ArrayObject;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -29,141 +21,74 @@ use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Vich\UploaderBundle\Mapping\Annotation as Vich;
 
-#[ApiResource(
-    operations: [
-        // ----------------------------------------
-        // Public Read Operations
-        // ----------------------------------------
-        new GetCollection(
-            normalizationContext: ['groups' => ['meal:read']]
-        ),
-        new Get(
-            normalizationContext: ['groups' => ['meal:read:detailed']]
-        ),
-        new GetCollection(
-            uriTemplate: '/restaurants/{restaurantId}/meals',
-            uriVariables: [
-                'restaurantId' => new Link(
-                    toProperty: 'restaurant',
-                    fromClass: Meal::class
-                ),
-            ],
-            normalizationContext: ['groups' => ['meal:read:detailed']]
-        ),
-        new GetCollection(
-            uriTemplate: '/meal_plans/{mealPlanId}/meals',
-            uriVariables: [
-                'mealPlanId' => new Link(
-                    toProperty: 'mealPlans',
-                    fromClass: Meal::class
-                ),
-            ],
-            normalizationContext: ['groups' => ['meal:read:detailed']]
-        ),
-
-        // ----------------------------------------
-        // Owner/Admin Write Operations
-        // ----------------------------------------
-        new Post(
-            denormalizationContext: ['groups' => ['meal:write']],
-            security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT')",
-            processor: RestaurantOwnedStateProcessor::class // 💡 Auto-set restaurant
-        ),
-        new Patch(
-        // Check if Admin OR if the object's restaurant is owned by the user
-            denormalizationContext: ['groups' => ['meal:write']],
-            security: "is_granted('ROLE_ADMIN') or object.getRestaurant().isOwnedBy(user)",
-        ),
-        new Delete(
-            security: "is_granted('ROLE_ADMIN') or object.getRestaurant().isOwnedBy(user)"
-        ),
-
-        // ----------------------------------------
-        // FILE UPLOAD Operation (Custom)
-        // ----------------------------------------
-        new Post(
-            uriTemplate: '/meals/{id}/image',
-            controller: ImageUploadController::class,
-            openapi: new Operation(
-                summary: 'Uploads an image for a Meal',
-                requestBody: new RequestBody(
-                    content: new ArrayObject([
-                        'multipart/form-data' => [
-                            'schema' => [
-                                'type' => 'object',
-                                'properties' => [
-                                    'imageFile' => [
-                                        'type' => 'string',
-                                        'format' => 'binary',
-                                        'description' => 'The image file to upload'
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ])
-                )
-            ),
-            security: "is_granted('ROLE_ADMIN') or object.getRestaurant().isOwnedBy(user)",
-            deserialize: false
-        )
-    ],
-    normalizationContext: ['groups' => ['meal:read']]
-)]
-// Add filters for public browsing and sorting
-#[ApiFilter(SearchFilter::class, properties: ['name' => 'partial', 'restaurant' => 'exact'])]
-#[ApiFilter(OrderFilter::class, properties: ['price', 'calories', 'name'])]
 #[ORM\Entity(repositoryClass: MealRepository::class)]
 #[Vich\Uploadable]
+#[ApiResource(
+    operations: [],
+    normalizationContext: ['groups' => ['read']],
+    denormalizationContext: ['groups' => ['create', 'update']],
+    graphQlOperations: [
+        new QueryCollection(security: "is_granted('PUBLIC_ACCESS')"),
+        new Query(security: "is_granted('PUBLIC_ACCESS')"),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'create'),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'update'),
+        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'delete')
+    ],
+)]
 class Meal implements ImageUploadableInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['meal:read', 'meal:read:detailed', 'meal_plan:read_detailed'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
     #[Assert\NotBlank]
-    #[Groups(['meal:read', 'meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?string $name = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
-    #[Groups(['meal:read', 'meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?string $description = null;
 
-    // ... (Nutritional fields: calories, protein, fat, carbs) ...
     #[ORM\Column(type: Types::FLOAT)]
-    #[Groups(['meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?float $calories = null;
 
     #[ORM\Column(type: Types::FLOAT)]
-    #[Groups(['meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?float $protein = null;
 
     #[ORM\Column(type: Types::FLOAT)]
-    #[Groups(['meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?float $fat = null;
 
     #[ORM\Column(type: Types::FLOAT)]
-    #[Groups(['meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?float $carbs = null;
 
     #[ORM\Column]
     #[Assert\GreaterThanOrEqual(value: 0)]
-    #[Groups(['meal:read', 'meal:read:detailed', 'meal:write', 'meal_plan:read_detailed'])]
-    private ?int $price = null; //
+    #[Groups(['read', 'create', 'update'])]
+    private ?int $price = null;
 
     #[ORM\ManyToOne(inversedBy: 'meals')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['meal:read', 'meal:read:detailed', 'meal:write'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
+    #[Groups(['read', 'create'])]
     private ?Restaurant $restaurant = null;
 
     #[ORM\ManyToMany(targetEntity: MealPlan::class, mappedBy: 'meals')]
-    #[Groups(['meal:read:detailed'])]
+    #[ApiProperty(readableLink: true)]
+    #[Groups(['read'])]
     private Collection $mealPlans;
 
     // --- Image Upload Fields ---
     #[Vich\UploadableField(mapping: 'meal_image', fileNameProperty: 'imagePath')]
+    #[Assert\File(
+        maxSize: '2M',
+        mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    )]
     private ?File $imageFile = null;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -181,7 +106,8 @@ class Meal implements ImageUploadableInterface
     {
         return $this->id;
     }
-    #[Groups(['meal:read', 'meal:read:detailed', 'meal_plan:read_detailed'])]
+
+    #[Groups(['read'])]
     public function getImageUrl(): ?string
     {
         if ($this->getImagePath()) {
@@ -189,7 +115,6 @@ class Meal implements ImageUploadableInterface
         }
         return null;
     }
-
 
 
     public function getImageFile(): ?File

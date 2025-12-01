@@ -4,19 +4,12 @@ namespace App\Entity;
 
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Delete;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Link;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Post;
-use ApiPlatform\OpenApi\Model\Operation;
-use ApiPlatform\OpenApi\Model\RequestBody;
+use ApiPlatform\Metadata\GraphQl\DeleteMutation;
+use ApiPlatform\Metadata\GraphQl\Mutation;
+use ApiPlatform\Metadata\GraphQl\Query;
+use ApiPlatform\Metadata\GraphQl\QueryCollection;
 use App\ApiResource\ImageUploadableInterface;
-use App\Controller\ImageUploadController;
 use App\Repository\MealPlanRepository;
-use App\State\RestaurantOwnedStateProcessor;
-use ArrayObject;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -28,101 +21,52 @@ use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Vich\UploaderBundle\Mapping\Annotation as Vich;
 
-#[ApiResource(
-    operations: [
-        // ----------------------------------------
-        // READ Operations (Public)
-        // ----------------------------------------
-        new Get(
-            normalizationContext: ['groups' => ['meal_plan:read_detailed']]
-        ),
-        new GetCollection(
-            uriTemplate: '/restaurants/{restaurantId}/meal_plans',
-            uriVariables: [
-                'restaurantId' => new Link(
-                    toProperty: 'restaurant',
-                    fromClass: MealPlan::class
-                ),
-            ],
-            normalizationContext: ['groups' => ['meal_plan:read']]
-        ),
-
-        // ----------------------------------------
-        // WRITE Operations (Secured)
-        // ----------------------------------------
-        new Post(
-            denormalizationContext: ['groups' => ['meal_plan:write']],
-            security: "is_granted('ROLE_RESTAURANT')",
-            processor: RestaurantOwnedStateProcessor::class
-        ),
-        new Patch(
-            denormalizationContext: ['groups' => ['meal_plan:write']],
-            security: "is_granted('ROLE_ADMIN') or object.getRestaurant().isOwnedBy(user)"
-        ),
-        new Delete(
-            security: "is_granted('ROLE_ADMIN') or object.getRestaurant().isOwnedBy(user)"
-        ),
-
-        // ----------------------------------------
-        // FILE UPLOAD Operation (Custom)
-        // ----------------------------------------
-        new Post(
-            uriTemplate: '/meal_plans/{id}/image',
-            controller: ImageUploadController::class,
-            openapi: new Operation(
-                summary: 'Uploads an image for a MealPlan',
-                requestBody: new RequestBody(
-                    content: new ArrayObject([
-                        'multipart/form-data' => [
-                            'schema' => [
-                                'type' => 'object',
-                                'properties' => [
-                                    'imageFile' => [
-                                        'type' => 'string',
-                                        'format' => 'binary',
-                                        'description' => 'The image file to upload'
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ])
-                )
-            ),
-            security: "is_granted('ROLE_ADMIN') or object.getRestaurant().isOwnedBy(user)",
-            deserialize: false
-        )
-    ],
-    // Default normalization for collections (less data)
-    normalizationContext: ['groups' => ['meal_plan:read']],
-)]
 #[ORM\Entity(repositoryClass: MealPlanRepository::class)]
 #[Vich\Uploadable]
+#[ApiResource(
+    operations: [],
+    normalizationContext: ['groups' => ['read']],
+    denormalizationContext: ['groups' => ['create', 'update']],
+    graphQlOperations: [
+        new QueryCollection(security: "is_granted('PUBLIC_ACCESS')"),
+        new Query(security: "is_granted('PUBLIC_ACCESS')"),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'create'),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'update'),
+        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'delete')
+    ],
+)]
 class MealPlan implements ImageUploadableInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['meal_plan:read', 'meal_plan:read_detailed'])]
     private ?int $id = null;
 
     #[ORM\ManyToMany(targetEntity: Meal::class, inversedBy: 'mealPlans')]
-    #[Groups(['meal_plan:read_detailed', 'meal_plan:write'])] // Detailed view only
+    #[ApiProperty(readableLink: true, writableLink: false)]
+    #[Groups(['read', 'create', 'update'])]
     private Collection $meals;
 
     #[ORM\ManyToMany(targetEntity: Category::class, inversedBy: 'mealPlans')]
-    #[Groups(['meal_plan:read', 'meal_plan:write'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
+    #[Groups(['read', 'create', 'update'])]
     private Collection $categories;
 
     #[ORM\Column(length: 50)]
     #[Assert\NotBlank]
     #[Assert\Length(max: 50)]
-    #[Groups(['meal_plan:read', 'meal_plan:read_detailed', 'meal_plan:write'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?string $name = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Assert\Length(max: 1000)]
-    #[Groups(['meal_plan:read', 'meal_plan:read_detailed', 'meal_plan:write'])]
+    #[Groups(['read', 'create', 'update'])]
     private ?string $description = null;
+
+    #[ORM\ManyToOne(inversedBy: 'mealPlans')]
+    #[ApiProperty(readableLink: true, writableLink: false)]
+    #[Groups(['read', 'create'])]
+    private ?Restaurant $restaurant = null;
 
     #[Vich\UploadableField(mapping: 'meal_plan_image', fileNameProperty: 'imagePath')]
     #[Assert\File(
@@ -133,9 +77,6 @@ class MealPlan implements ImageUploadableInterface
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $imagePath = null;
-
-    #[ORM\ManyToOne(inversedBy: 'mealPlans')]
-    private ?Restaurant $restaurant = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?DateTimeInterface $updatedAt;
@@ -152,11 +93,10 @@ class MealPlan implements ImageUploadableInterface
         return $this->id;
     }
 
-    #[Groups(['meal_plan:read', 'meal_plan:read_detailed'])]
+    #[Groups(['read'])]
     public function getImageUrl(): ?string
     {
         if ($this->getImagePath()) {
-            // 💡 You might need to prefix this with your base URL (e.g., from an env var)
             return '/images/meal_plans/' . $this->getImagePath();
         }
 
@@ -293,7 +233,7 @@ class MealPlan implements ImageUploadableInterface
             'example' => 123.45,
         ]
     )]
-    #[Groups(['meal_plan:read', 'meal_plan:read_detailed'])]
+    #[Groups(['read'])]
     public function getPrice(): ?int
     {
         $price = 0;
@@ -302,4 +242,6 @@ class MealPlan implements ImageUploadableInterface
         }
         return $price;
     }
+
+
 }
