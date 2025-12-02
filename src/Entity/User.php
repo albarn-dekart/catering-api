@@ -27,15 +27,9 @@ use Symfony\Component\Validator\Constraints as Assert;
     denormalizationContext: ['groups' => ['create', 'update']],
     graphQlOperations: [
         new QueryCollection(security: "is_granted('ROLE_ADMIN')"),
-        new Mutation(
-            security: "is_granted('PUBLIC_ACCESS')",
-            validationContext: ['groups' => ['create']],
-            name: 'create'
-        ),
         new Query(security: "is_granted('IS_AUTHENTICATED_FULLY') and object == user or is_granted('ROLE_ADMIN')"),
         new Mutation(
-            security: "is_granted('IS_AUTHENTICATED_FULLY') and object == user or is_granted('ROLE_ADMIN')",
-            validationContext: ['groups' => ['update']],
+            security: "is_granted('ROLE_ADMIN')",
             name: 'update'
         ),
         new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
@@ -49,33 +43,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?int $id = null;
 
     #[ORM\Column(length: 180, unique: true)]
-    #[Assert\NotBlank(groups: ['create', 'user:create:restaurant'])]
     #[Assert\Email(groups: ['create', 'user:create:restaurant'])]
     #[Groups(['read', 'create', 'update'])]
     private ?string $email = null;
 
-    #[Assert\NotBlank(groups: ['create', 'user:create:restaurant'])]
-    #[Assert\Regex(
-        pattern: "/^(?=.*[A-Z])(?=.*\d).{8,}$/",
-        message: 'Password must be 8+ chars with 1 uppercase and 1 digit.',
-        groups: ['create', 'user:create:restaurant']
-    )]
     #[Groups(['create', 'update'])]
     private ?string $plainPassword = null;
 
-    #[Assert\NotBlank(groups: ['user:change_password'])]
-    #[Groups(['user:change_password'])]
     private ?string $currentPassword = null;
 
     #[ORM\Column]
     private ?string $password = null;
 
     #[ORM\Column]
-    #[Assert\Choice(
-        choices: ['ROLE_CUSTOMER', 'ROLE_ADMIN', 'ROLE_DRIVER', 'ROLE_RESTAURANT'],
-        multiple: true,
-        groups: ['create', 'user:write']
-    )]
     #[Groups(['read', 'create', 'update'])]
     private array $roles = [];
 
