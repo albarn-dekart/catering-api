@@ -2,9 +2,11 @@
 
 namespace App\Controller;
 
+use App\Entity\Restaurant;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\AsController;
@@ -21,7 +23,7 @@ class InviteDriverController extends AbstractController
     ) {}
 
     #[Route('/api/invite-driver', name: 'invite_driver', methods: ['POST'])]
-    #[IsGranted('ROLE_RESTAURANT')]
+    #[IsGranted(new Expression("is_granted('ROLE_RESTAURANT') or is_granted('ROLE_ADMIN')"))]
     public function __invoke(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -43,9 +45,17 @@ class InviteDriverController extends AbstractController
             return new JsonResponse(['error' => 'User with this email already exists'], 409);
         }
 
-        /** @var User $currentUser */
+        /** @var User|null $currentUser */
         $currentUser = $this->getUser();
         $restaurant = $currentUser->getRestaurant();
+
+        if ($this->isGranted('ROLE_ADMIN') && isset($data['restaurantId'])) {
+            $restaurant = $this->entityManager->getRepository(Restaurant::class)->find($data['restaurantId']);
+
+            if (!$restaurant) {
+                return new JsonResponse(['error' => 'Restaurant not found'], 404);
+            }
+        }
 
         if (!$restaurant) {
             return new JsonResponse(['error' => 'You do not have a restaurant associated with your account'], 403);

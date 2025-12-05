@@ -75,7 +75,7 @@ class Restaurant implements ImageUploadableInterface
 
     #[ORM\ManyToMany(targetEntity: RestaurantCategory::class, inversedBy: 'restaurants')]
     #[ApiProperty(readableLink: true, writableLink: false)]
-    #[Groups(['read', 'update'])]
+    #[Groups(['read', 'create', 'update'])]
     private Collection $restaurantCategories;
 
     #[ORM\OneToMany(targetEntity: Meal::class, mappedBy: 'restaurant', orphanRemoval: true)]

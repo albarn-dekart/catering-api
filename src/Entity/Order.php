@@ -27,7 +27,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
     denormalizationContext: ['groups' => ['create', 'update']],
     graphQlOperations: [
         new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER') or is_granted('ROLE_DRIVER')"),
-        new Query(security: "is_granted('ROLE_ADMIN') or object.getCustomer() == user or object.getRestaurant() == user.getRestaurant()"),
+        new Query(security: "is_granted('ROLE_CUSTOMER') and object.getCustomer() == user or object.getRestaurant() == user.getRestaurant() or is_granted('ROLE_ADMIN')"),
         new Mutation(security: "is_granted('ROLE_CUSTOMER')", name: 'create'),
         new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or (is_granted('ROLE_CUSTOMER') and object.getCustomer() == user)", name: 'update'),
         new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
@@ -100,14 +100,15 @@ class Order
     #[Groups(['read', 'create'])]
     private ?string $deliveryZipCode = null;
 
+    #[ORM\Column(type: 'datetime')]
+    #[Groups(['read'])]
+    private ?\DateTimeInterface $createdAt = null;
+
     public function __construct()
     {
         $this->orderItems = new ArrayCollection();
         $this->deliveries = new ArrayCollection();
     }
-
-    // ... (All getters and setters remain the same)
-    // ...
 
     public function getId(): ?int
     {
@@ -375,9 +376,26 @@ class Order
         return $this;
     }
 
+    public function getCreatedAt(): ?\DateTimeInterface
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(\DateTimeInterface $createdAt): static
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
+        // Set createdAt timestamp
+        if ($this->createdAt === null) {
+            $this->createdAt = new \DateTime();
+        }
+
         // Calculate Total
         if ($this->total === null) {
             $subtotal = 0;

@@ -17,7 +17,7 @@ class JWTCreatedListener
 
     public function onJWTCreated(JWTCreatedEvent $event): void
     {
-        /** @var User $user */
+        /** @var User|null $user */
         $user = $event->getUser();
 
         $payload = $event->getData();

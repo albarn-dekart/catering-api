@@ -27,8 +27,7 @@ security:
         path: /api/logout
 
   access_control:
-    - { path: ^/api/(graphql|login|register|images), roles: PUBLIC_ACCESS }
-    - { path: ^/api/(restaurants|categories|meal_plans), roles: PUBLIC_ACCESS }
+    - { path: ^/api/(graphql|home|login|register|images), roles: PUBLIC_ACCESS }
     - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 when@test:
   security:

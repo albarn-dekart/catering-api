@@ -35,4 +35,67 @@ class UserRepository extends ServiceEntityRepository
             return in_array('ROLE_DRIVER', $user->getRoles());
         }));
     }
+
+    /**
+     * Get the total number of users grouped by role
+     * Returns an array like ['ROLE_CUSTOMER' => 50, 'ROLE_RESTAURANT' => 10, ...]
+     */
+    public function getTotalUsersByRole(): array
+    {
+        $users = $this->findAll();
+
+        $rolesCounts = [
+            'ROLE_CUSTOMER' => 0,
+            'ROLE_RESTAURANT' => 0,
+            'ROLE_DRIVER' => 0,
+            'ROLE_ADMIN' => 0,
+        ];
+
+        foreach ($users as $user) {
+            $roles = $user->getRoles();
+            // Count primary role (most specific role)
+            if (in_array('ROLE_ADMIN', $roles)) {
+                $rolesCounts['ROLE_ADMIN']++;
+            } elseif (in_array('ROLE_RESTAURANT', $roles)) {
+                $rolesCounts['ROLE_RESTAURANT']++;
+            } elseif (in_array('ROLE_DRIVER', $roles)) {
+                $rolesCounts['ROLE_DRIVER']++;
+            } elseif (in_array('ROLE_CUSTOMER', $roles)) {
+                $rolesCounts['ROLE_CUSTOMER']++;
+            }
+        }
+
+        return $rolesCounts;
+    }
+
+    /**
+     * Get the number of new users created within a specific time period
+     */
+    public function getNewUsersInPeriod(\DateTimeInterface $start, \DateTimeInterface $end): int
+    {
+        $result = $this->createQueryBuilder('u')
+            ->select('COUNT(u.id)')
+            ->where('u.id >= :start')
+            ->andWhere('u.id <= :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return $result ? (int) $result : 0;
+    }
+
+    /**
+     * Get the count of active customers (customers who have placed at least one order)
+     */
+    public function getActiveCustomersCount(): int
+    {
+        $result = $this->createQueryBuilder('u')
+            ->select('COUNT(DISTINCT u.id)')
+            ->innerJoin('u.orders', 'o')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return $result ? (int) $result : 0;
+    }
 }

@@ -43,14 +43,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?int $id = null;
 
     #[ORM\Column(length: 180, unique: true)]
-    #[Assert\Email(groups: ['create', 'user:create:restaurant'])]
+    #[Assert\Email(groups: ['create'])]
     #[Groups(['read', 'create', 'update'])]
     private ?string $email = null;
-
-    #[Groups(['create', 'update'])]
-    private ?string $plainPassword = null;
-
-    private ?string $currentPassword = null;
 
     #[ORM\Column]
     private ?string $password = null;
@@ -66,7 +61,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\ManyToOne(targetEntity: Restaurant::class, inversedBy: 'users')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    #[Assert\Valid]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read', 'create', 'update'])]
     private ?Restaurant $restaurant = null;
@@ -137,32 +131,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function eraseCredentials(): void
     {
-        // If you store any temporary, sensitive data on the user, clear it here
-        $this->plainPassword = null;
-    }
-
-    public function getPlainPassword(): ?string
-    {
-        return $this->plainPassword;
-    }
-
-    public function setPlainPassword(?string $plainPassword): self
-    {
-        $this->plainPassword = $plainPassword;
-
-        return $this;
-    }
-
-    public function getCurrentPassword(): ?string
-    {
-        return $this->currentPassword;
-    }
-
-    public function setCurrentPassword(?string $currentPassword): self
-    {
-        $this->currentPassword = $currentPassword;
-
-        return $this;
     }
 
     public function getPassword(): ?string
