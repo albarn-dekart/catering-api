@@ -33,7 +33,7 @@ class DeliveryRepository extends ServiceEntityRepository
      * Optionally filter by restaurant
      * Returns array like ['Pending' => 5, 'Delivered' => 20, ...]
      */
-    public function getDeliveriesByStatus(?Restaurant $restaurant = null): array
+    public function getDeliveriesByStatus(?Restaurant $restaurant = null, ?\DateTimeInterface $startDate = null, ?\DateTimeInterface $endDate = null): array
     {
         $qb = $this->createQueryBuilder('d')
             ->select('d.status as status, COUNT(d.id) as count')
@@ -42,6 +42,13 @@ class DeliveryRepository extends ServiceEntityRepository
         if ($restaurant) {
             $qb->where('d.restaurant = :restaurant')
                 ->setParameter('restaurant', $restaurant);
+        }
+
+        if ($startDate && $endDate) {
+            $qb->andWhere('d.deliveryDate >= :startDate')
+                ->andWhere('d.deliveryDate <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
         }
 
         $results = $qb->getQuery()->getResult();
@@ -58,23 +65,75 @@ class DeliveryRepository extends ServiceEntityRepository
     }
 
     /**
+     * Get the production plan for a specific date (or range)
+     * Returns an array like: [['mealName' => 'Keto', 'count' => 50], ...]
+     */
+    public function getProductionPlan(Restaurant $restaurant, \DateTimeInterface $date): array
+    {
+        // Set time range for the entire day (00:00:00 to 23:59:59)
+        $startDate = (clone $date)->setTime(0, 0, 0);
+        $endDate = (clone $date)->setTime(23, 59, 59);
+
+        // Query to sum up quantities of meal plans for deliveries scheduled on this date
+        // We join Delivery -> Order -> OrderItems -> MealPlan
+        return $this->createQueryBuilder('d')
+            ->select('mp.name as mealName, SUM(oi.quantity) as count')
+            ->join('d.order', 'o')
+            ->join('o.orderItems', 'oi')
+            ->join('oi.mealPlan', 'mp')
+            ->where('d.restaurant = :restaurant')
+            ->andWhere('d.deliveryDate >= :startDate')
+            ->andWhere('d.deliveryDate <= :endDate')
+            // Exclude cancelled orders
+            ->andWhere('o.status != :cancelledStatus')
+            ->setParameter('restaurant', $restaurant)
+            ->setParameter('startDate', $startDate)
+            ->setParameter('endDate', $endDate)
+            ->setParameter('cancelledStatus', \App\Enum\OrderStatus::Cancelled)
+            ->groupBy('mp.id')
+            ->orderBy('mp.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Get the delivery success rate
      * Success rate = (Delivered / Total) * 100
      * Optionally filter by restaurant
      */
-    public function getDeliverySuccessRate(?Restaurant $restaurant = null): float
+    public function getDeliverySuccessRate(?Restaurant $restaurant = null, ?\DateTimeInterface $startDate = null, ?\DateTimeInterface $endDate = null): float
     {
+        // Calculate success rate based only on TERMINAL statuses (Delivered, Failed, Returned)
+        // We exclude Pending, Assigned, Picked_up as they are not yet resolved.
+
         $qb = $this->createQueryBuilder('d')
-            ->select('COUNT(d.id)');
+            ->select('COUNT(d.id)')
+            ->where('d.status IN (:terminalStatuses)')
+            ->setParameter('terminalStatuses', [
+                DeliveryStatus::Delivered,
+                DeliveryStatus::Failed,
+                DeliveryStatus::Returned
+            ]);
+
+        if ($startDate && $endDate) {
+            $qb->andWhere('d.deliveryDate >= :startDate')
+                ->andWhere('d.deliveryDate <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
+        } else {
+            $today = new \DateTimeImmutable('today');
+            $qb->andWhere('d.deliveryDate <= :today')
+                ->setParameter('today', $today);
+        }
 
         if ($restaurant) {
-            $qb->where('d.restaurant = :restaurant')
+            $qb->andWhere('d.restaurant = :restaurant')
                 ->setParameter('restaurant', $restaurant);
         }
 
-        $totalDeliveries = $qb->getQuery()->getSingleScalarResult();
+        $totalCompletedDeliveries = $qb->getQuery()->getSingleScalarResult();
 
-        if (!$totalDeliveries || $totalDeliveries == 0) {
+        if (!$totalCompletedDeliveries || $totalCompletedDeliveries == 0) {
             return 0.0;
         }
 
@@ -83,6 +142,17 @@ class DeliveryRepository extends ServiceEntityRepository
             ->where('d.status = :deliveredStatus')
             ->setParameter('deliveredStatus', DeliveryStatus::Delivered);
 
+        if ($startDate && $endDate) {
+            $deliveredQb->andWhere('d.deliveryDate >= :startDate')
+                ->andWhere('d.deliveryDate <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
+        } else {
+            $today = new \DateTimeImmutable('today');
+            $deliveredQb->andWhere('d.deliveryDate <= :today')
+                ->setParameter('today', $today);
+        }
+
         if ($restaurant) {
             $deliveredQb->andWhere('d.restaurant = :restaurant')
                 ->setParameter('restaurant', $restaurant);
@@ -90,6 +160,6 @@ class DeliveryRepository extends ServiceEntityRepository
 
         $deliveredCount = $deliveredQb->getQuery()->getSingleScalarResult();
 
-        return $deliveredCount ? ($deliveredCount / $totalDeliveries) * 100 : 0.0;
+        return $deliveredCount ? ($deliveredCount / $totalCompletedDeliveries) * 100 : 0.0;
     }
 }

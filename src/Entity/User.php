@@ -17,10 +17,14 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use App\Filter\UserSearchFilter;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
 #[UniqueEntity(fields: ['email'], message: 'There is already an account with this email')]
+#[ApiFilter(UserSearchFilter::class)]
 #[ApiResource(
     operations: [],
     normalizationContext: ['groups' => ['read']],
@@ -32,7 +36,7 @@ use Symfony\Component\Validator\Constraints as Assert;
             security: "is_granted('ROLE_ADMIN')",
             name: 'update'
         ),
-        new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
+        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant() and 'ROLE_DRIVER' in object.getRoles())", name: 'delete')
     ],
 )]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
@@ -65,7 +69,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['read', 'create', 'update'])]
     private ?Restaurant $restaurant = null;
 
-    #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'customer', orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'customer')]
     #[ApiProperty(readableLink: true)]
     #[Groups(['read'])]
     private Collection $orders;
@@ -80,12 +84,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['read'])]
     private Collection $addresses;
 
+    #[ORM\OneToMany(targetEntity: MealPlan::class, mappedBy: 'owner', orphanRemoval: true)]
+    #[Groups(['read'])]
+    private Collection $customMealPlans;
+
 
     public function __construct()
     {
         $this->orders = new ArrayCollection();
         $this->deliveries = new ArrayCollection();
         $this->addresses = new ArrayCollection();
+        $this->customMealPlans = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -129,9 +138,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function eraseCredentials(): void
-    {
-    }
+    public function eraseCredentials(): void {}
 
     public function getPassword(): ?string
     {
@@ -241,6 +248,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             // set the owning side to null (unless already changed)
             if ($address->getUser() === $this) {
                 $address->setUser(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, MealPlan>
+     */
+    public function getCustomMealPlans(): Collection
+    {
+        return $this->customMealPlans;
+    }
+
+    public function addCustomMealPlan(MealPlan $customMealPlan): static
+    {
+        if (!$this->customMealPlans->contains($customMealPlan)) {
+            $this->customMealPlans->add($customMealPlan);
+            $customMealPlan->setOwner($this);
+        }
+
+        return $this;
+    }
+
+    public function removeCustomMealPlan(MealPlan $customMealPlan): static
+    {
+        if ($this->customMealPlans->removeElement($customMealPlan)) {
+            // set the owning side to null (unless already changed)
+            if ($customMealPlan->getOwner() === $this) {
+                $customMealPlan->setOwner(null);
             }
         }
 

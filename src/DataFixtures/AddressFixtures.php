@@ -13,7 +13,7 @@ class AddressFixtures extends Fixture implements DependentFixtureInterface
 {
     public function load(ObjectManager $manager): void
     {
-        $faker = Factory::create('en_US');
+        $faker = Factory::create('pl_PL'); // Changed to pl_PL
 
         // Create 1-2 addresses for each customer
         for ($i = 1; $i <= 25; $i++) {
@@ -27,7 +27,7 @@ class AddressFixtures extends Fixture implements DependentFixtureInterface
             $address1->setLastName($faker->lastName());
             $address1->setPhoneNumber($faker->phoneNumber());
             $address1->setStreet($faker->streetAddress());
-            $address1->setApartment($faker->optional(0.4)->secondaryAddress());
+            $address1->setApartment($faker->optional(0.4)->buildingNumber());
             $address1->setCity($faker->city());
             $address1->setZipCode($faker->postcode());
             $address1->setIsDefault(true);
@@ -42,7 +42,7 @@ class AddressFixtures extends Fixture implements DependentFixtureInterface
                 $address2->setLastName($faker->lastName());
                 $address2->setPhoneNumber($faker->phoneNumber());
                 $address2->setStreet($faker->streetAddress());
-                $address2->setApartment($faker->optional(0.3)->secondaryAddress());
+                $address2->setApartment($faker->optional(0.3)->buildingNumber());
                 $address2->setCity($faker->city());
                 $address2->setZipCode($faker->postcode());
                 $address2->setIsDefault(false);

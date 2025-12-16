@@ -21,18 +21,32 @@ use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Vich\UploaderBundle\Mapping\Annotation as Vich;
 
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\RangeFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use App\Filter\MealPlanSearchFilter;
+
 #[ORM\Entity(repositoryClass: MealPlanRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 #[Vich\Uploadable]
+#[ApiFilter(MealPlanSearchFilter::class)]
+#[ApiFilter(SearchFilter::class, properties: ['dietCategories.name' => 'exact'])]
+#[ApiFilter(RangeFilter::class, properties: ['price', 'calories', 'protein', 'fat', 'carbs'])]
+#[ApiResource(order: ['id' => 'DESC'])]
 #[ApiResource(
     operations: [],
     normalizationContext: ['groups' => ['read']],
     denormalizationContext: ['groups' => ['create', 'update']],
     graphQlOperations: [
         new QueryCollection(security: "is_granted('PUBLIC_ACCESS')"),
-        new Query(security: "is_granted('PUBLIC_ACCESS')"),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'create'),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'update'),
-        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'delete')
+        new Query(security: "is_granted('PUBLIC_ACCESS') and (object.getOwner() == null or object.getOwner() == user)"),
+        new Mutation(
+            security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or is_granted('ROLE_CUSTOMER')",
+            securityPostDenormalize: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or (is_granted('ROLE_CUSTOMER') and object.getOwner() == user)",
+            name: 'create'
+        ),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or (is_granted('ROLE_CUSTOMER') and object.getOwner() == user)", name: 'update'),
+        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or (is_granted('ROLE_CUSTOMER') and object.getOwner() == user)", name: 'delete')
     ],
 )]
 class MealPlan implements ImageUploadableInterface
@@ -45,6 +59,12 @@ class MealPlan implements ImageUploadableInterface
     #[ORM\ManyToMany(targetEntity: Meal::class, inversedBy: 'mealPlans')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read', 'create', 'update'])]
+    #[Assert\Count(
+        min: 1,
+        max: 5,
+        minMessage: 'You must select at least one meal.',
+        maxMessage: 'You cannot select more than 5 meals in a plan.'
+    )]
     private Collection $meals;
 
     #[ORM\ManyToMany(targetEntity: DietCategory::class, inversedBy: 'mealPlans')]
@@ -62,6 +82,26 @@ class MealPlan implements ImageUploadableInterface
     #[Assert\Length(max: 1000)]
     #[Groups(['read', 'create', 'update'])]
     private ?string $description = null;
+
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    #[Groups(['read'])]
+    private ?int $price = null;
+
+    #[ORM\Column(type: Types::FLOAT, nullable: true)]
+    #[Groups(['read'])]
+    private ?float $calories = null;
+
+    #[ORM\Column(type: Types::FLOAT, nullable: true)]
+    #[Groups(['read'])]
+    private ?float $protein = null;
+
+    #[ORM\Column(type: Types::FLOAT, nullable: true)]
+    #[Groups(['read'])]
+    private ?float $fat = null;
+
+    #[ORM\Column(type: Types::FLOAT, nullable: true)]
+    #[Groups(['read'])]
+    private ?float $carbs = null;
 
     #[ORM\ManyToOne(inversedBy: 'mealPlans')]
     #[ApiProperty(readableLink: true, writableLink: false)]
@@ -81,6 +121,12 @@ class MealPlan implements ImageUploadableInterface
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?DateTimeInterface $updatedAt;
 
+    #[ORM\ManyToOne(inversedBy: 'customMealPlans')]
+    #[ORM\JoinColumn(nullable: true)]
+    #[ApiProperty(readableLink: true, writableLink: false)]
+    #[Groups(['read', 'create'])]
+    private ?User $owner = null;
+
     public function __construct()
     {
         $this->meals = new ArrayCollection();
@@ -98,6 +144,13 @@ class MealPlan implements ImageUploadableInterface
     {
         if ($this->getImagePath()) {
             return '/images/meal_plans/' . $this->getImagePath();
+        }
+
+        if ($this->meals->count() > 0) {
+            $firstMeal = $this->meals->first();
+            if ($firstMeal instanceof Meal) {
+                return $firstMeal->getImageUrl();
+            }
         }
 
         return null;
@@ -221,25 +274,89 @@ class MealPlan implements ImageUploadableInterface
         return $this;
     }
 
-    /**
-     * Expose the calculated price.
-     */
-    #[ApiProperty(
-        description: 'The total price of the meal plan, calculated from the sum of the prices of its meals.',
-        writable: false,
-        schema: [
-            'type' => 'number',
-            'format' => 'float',
-            'example' => 123.45,
-        ]
-    )]
-    #[Groups(['read'])]
     public function getPrice(): ?int
     {
-        $price = 0;
+        return $this->price;
+    }
+
+    public function setPrice(?int $price): self
+    {
+        $this->price = $price;
+        return $this;
+    }
+
+    public function getCalories(): ?float
+    {
+        return $this->calories;
+    }
+
+    public function setCalories(?float $calories): self
+    {
+        $this->calories = $calories;
+        return $this;
+    }
+
+    public function getProtein(): ?float
+    {
+        return $this->protein;
+    }
+
+    public function setProtein(?float $protein): self
+    {
+        $this->protein = $protein;
+        return $this;
+    }
+
+    public function getFat(): ?float
+    {
+        return $this->fat;
+    }
+
+    public function setFat(?float $fat): self
+    {
+        $this->fat = $fat;
+        return $this;
+    }
+
+    public function getCarbs(): ?float
+    {
+        return $this->carbs;
+    }
+
+    public function setCarbs(?float $carbs): self
+    {
+        $this->carbs = $carbs;
+        return $this;
+    }
+
+    #[ORM\PrePersist]
+    #[ORM\PreUpdate]
+    public function calculateTotals(): void
+    {
+        $this->price = 0;
+        $this->calories = 0.0;
+        $this->protein = 0.0;
+        $this->fat = 0.0;
+        $this->carbs = 0.0;
+
         foreach ($this->meals as $meal) {
-            $price += $meal->getPrice();
+            $this->price += $meal->getPrice();
+            $this->calories += $meal->getCalories();
+            $this->protein += $meal->getProtein();
+            $this->fat += $meal->getFat();
+            $this->carbs += $meal->getCarbs();
         }
-        return $price;
+    }
+
+    public function getOwner(): ?User
+    {
+        return $this->owner;
+    }
+
+    public function setOwner(?User $owner): static
+    {
+        $this->owner = $owner;
+
+        return $this;
     }
 }

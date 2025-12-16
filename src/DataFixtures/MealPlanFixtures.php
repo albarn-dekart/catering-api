@@ -14,125 +14,167 @@ class MealPlanFixtures extends Fixture implements DependentFixtureInterface
 {
     public function load(ObjectManager $manager): void
     {
-        // Italian Restaurant Meal Plans
+
         $italianPlans = [
             [
-                'name' => 'Classic Italian Week',
-                'desc' => 'A week of traditional Italian favorites',
+                'name' => 'Klasyczny Włoski Tydzień',
+                'desc' => 'Tydzień tradycyjnych włoskich przysmaków',
                 'meals' => ['italian_meal_0', 'italian_meal_1', 'italian_meal_2', 'italian_meal_5', 'italian_meal_6'],
                 'categories' => [DietCategoryFixtures::HIGH_PROTEIN],
+                'image' => 'włoski_tydzień.webp',
             ],
             [
-                'name' => 'Vegetarian Italian',
-                'desc' => 'Meat-free Italian delights',
+                'name' => 'Włoski Wegetariański',
+                'desc' => 'Włoskie przysmaki bez mięsa',
                 'meals' => ['italian_meal_0', 'italian_meal_3', 'italian_meal_4', 'italian_meal_5'],
                 'categories' => [DietCategoryFixtures::VEGETARIAN],
+                'image' => 'włoski_wegetariański.webp',
             ],
             [
-                'name' => 'Italian Pasta Lovers',
-                'desc' => 'Best pasta dishes from our kitchen',
+                'name' => 'Włoscy Miłośnicy Makaronów',
+                'desc' => 'Najlepsze dania makaronowe z naszej kuchni',
                 'meals' => ['italian_meal_1', 'italian_meal_4', 'italian_meal_5', 'italian_meal_9'],
                 'categories' => [],
+                'image' => 'makarony.webp',
             ],
         ];
 
         $this->createMealPlansForRestaurant($manager, RestaurantFixtures::RESTAURANT_1, $italianPlans, 'italian_plan');
 
-        // Asian Restaurant Meal Plans
+
         $asianPlans = [
             [
-                'name' => 'Asian Fusion Weekly',
-                'desc' => 'Mix of Thai, Japanese, and Chinese favorites',
-                'meals' => ['asian_meal_0', 'asian_meal_1', 'asian_meal_4', 'asian_meal_7', 'asian_meal_9'],
-                'categories' => [DietCategoryFixtures::HIGH_PROTEIN, DietCategoryFixtures::DAIRY_FREE],
+                'name' => 'Azjatycki Tydzień Smaków',
+                'desc' => 'Podróż po smakach Tajlandii, Japonii i Chin',
+                'meals' => ['asian_meal_0', 'asian_meal_1', 'asian_meal_4', 'asian_meal_5', 'asian_meal_6'],
+                'categories' => [DietCategoryFixtures::LOW_CARB],
+                'image' => 'lunch.webp',
             ],
             [
-                'name' => 'Sushi & Ramen Special',
-                'desc' => 'Japanese specialties for sushi and ramen lovers',
-                'meals' => ['asian_meal_2', 'asian_meal_7', 'asian_meal_4'],
-                'categories' => [DietCategoryFixtures::HIGH_PROTEIN],
+                'name' => 'Sushi i Zupy',
+                'desc' => 'Wybór lekkich i pożywnych dań azjatyckich',
+                'meals' => ['asian_meal_2', 'asian_meal_5', 'asian_meal_6', 'asian_meal_7'],
+                'categories' => [DietCategoryFixtures::GLUTEN_FREE],
+                'image' => 'sushi_zupy.webp',
             ],
             [
-                'name' => 'Vegetarian Asian',
-                'desc' => 'Plant-based Asian cuisine',
-                'meals' => ['asian_meal_3', 'asian_meal_5', 'asian_meal_8'],
-                'categories' => [DietCategoryFixtures::VEGETARIAN, DietCategoryFixtures::VEGAN],
+                'name' => 'Wegańska Azja',
+                'desc' => 'Dania w 100% roślinne z kuchni azjatyckiej',
+                'meals' => ['asian_meal_1', 'asian_meal_3', 'asian_meal_7', 'asian_meal_9'],
+                'categories' => [DietCategoryFixtures::VEGAN],
+                'image' => 'wegańska_azja.webp',
             ],
         ];
 
         $this->createMealPlansForRestaurant($manager, RestaurantFixtures::RESTAURANT_2, $asianPlans, 'asian_plan');
 
-        // Healthy Bowl Meal Plans
+
         $healthyPlans = [
             [
-                'name' => 'Keto Power Week',
-                'desc' => 'Low-carb, high-fat meals for ketogenic diet',
-                'meals' => ['healthy_meal_2', 'healthy_meal_3', 'healthy_meal_6'],
-                'categories' => [DietCategoryFixtures::KETO, DietCategoryFixtures::LOW_CARB, DietCategoryFixtures::GLUTEN_FREE],
+                'name' => 'Tydzień Zdrowej Diety',
+                'desc' => 'Zbilansowane posiłki dla zachowania formy',
+                'meals' => ['healthy_meal_0', 'healthy_meal_1', 'healthy_meal_6', 'healthy_meal_7', 'healthy_meal_8'],
+                'categories' => [DietCategoryFixtures::PALEO, DietCategoryFixtures::LOW_CARB],
+                'image' => 'zdrowa_dieta.webp',
             ],
             [
-                'name' => 'Vegan Complete',
-                'desc' => 'Fully plant-based nutrition plan',
-                'meals' => ['healthy_meal_4', 'healthy_meal_8', 'healthy_meal_9'],
-                'categories' => [DietCategoryFixtures::VEGAN, DietCategoryFixtures::VEGETARIAN, DietCategoryFixtures::DAIRY_FREE],
+                'name' => 'Miski i Sałatki',
+                'desc' => 'Lekkie i pełne witamin posiłki',
+                'meals' => ['healthy_meal_0', 'healthy_meal_3', 'healthy_meal_4', 'healthy_meal_5'],
+                'categories' => [DietCategoryFixtures::KETO],
+                'image' => 'miski_sałatki.webp',
             ],
             [
-                'name' => 'High Protein Athlete',
-                'desc' => 'Protein-packed meals for active lifestyles',
-                'meals' => ['healthy_meal_0', 'healthy_meal_2', 'healthy_meal_6', 'healthy_meal_7'],
-                'categories' => [DietCategoryFixtures::HIGH_PROTEIN, DietCategoryFixtures::GLUTEN_FREE],
+                'name' => 'Wysokobiałkowe Fit',
+                'desc' => 'Posiłki bogate w białko dla budujących mięśnie',
+                'meals' => ['healthy_meal_1', 'healthy_meal_3', 'healthy_meal_9'],
+                'categories' => [DietCategoryFixtures::HIGH_PROTEIN],
+                'image' => 'białko_fit.webp',
             ],
             [
-                'name' => 'Paleo Clean Eating',
-                'desc' => 'Paleo-friendly whole food meals',
-                'meals' => ['healthy_meal_0', 'healthy_meal_1', 'healthy_meal_2'],
-                'categories' => [DietCategoryFixtures::PALEO, DietCategoryFixtures::GLUTEN_FREE, DietCategoryFixtures::DAIRY_FREE],
+                'name' => 'Bezglutenowe Opcje',
+                'desc' => 'Wybór posiłków bez glutenu',
+                'meals' => ['healthy_meal_1', 'healthy_meal_2', 'healthy_meal_6', 'healthy_meal_8'],
+                'categories' => [DietCategoryFixtures::GLUTEN_FREE],
+                'image' => 'zdrowa_dieta.webp',
             ],
         ];
 
         $this->createMealPlansForRestaurant($manager, RestaurantFixtures::RESTAURANT_3, $healthyPlans, 'healthy_plan');
 
-        // BBQ Restaurant Meal Plans
+
         $bbqPlans = [
             [
-                'name' => 'BBQ Feast',
-                'desc' => 'Ultimate BBQ experience with all the classics',
-                'meals' => ['bbq_meal_0', 'bbq_meal_1', 'bbq_meal_2', 'bbq_meal_4', 'bbq_meal_8'],
+                'name' => 'Tydzień Amerykańskiego Grillowania',
+                'desc' => 'Najlepsze wędzone mięsa i dania z grilla',
+                'meals' => ['bbq_meal_0', 'bbq_meal_1', 'bbq_meal_3', 'bbq_meal_6', 'bbq_meal_7'],
                 'categories' => [DietCategoryFixtures::HIGH_PROTEIN],
+                'image' => 'grill.webp',
             ],
             [
-                'name' => 'Smokehouse Special',
-                'desc' => 'Best smoked meats and sides',
-                'meals' => ['bbq_meal_1', 'bbq_meal_3', 'bbq_meal_7'],
-                'categories' => [DietCategoryFixtures::HIGH_PROTEIN, DietCategoryFixtures::GLUTEN_FREE],
+                'name' => 'Klasyki Kuchni Southern',
+                'desc' => 'Tradycyjne dania z południa Stanów Zjednoczonych',
+                'meals' => ['bbq_meal_1', 'bbq_meal_4', 'bbq_meal_5', 'bbq_meal_8'],
+                'categories' => [],
+                'image' => 'kuchnia_southern.webp',
             ],
         ];
 
         $this->createMealPlansForRestaurant($manager, RestaurantFixtures::RESTAURANT_4, $bbqPlans, 'bbq_plan');
 
-        // Fast Food Meal Plans
+
         $fastFoodPlans = [
             [
-                'name' => 'Quick Lunch Combo',
-                'desc' => 'Fast and satisfying lunch options',
-                'meals' => ['fastfood_meal_0', 'fastfood_meal_2', 'fastfood_meal_8'],
+                'name' => 'Szybki Zestaw Lunchowy',
+                'desc' => 'Idealny zestaw na szybki obiad',
+                'meals' => ['fastfood_meal_0', 'fastfood_meal_3', 'fastfood_meal_7'],
                 'categories' => [],
+                'image' => 'lunch.webp',
             ],
             [
-                'name' => 'Family Meal Deal',
-                'desc' => 'Perfect for family dinners',
-                'meals' => ['fastfood_meal_0', 'fastfood_meal_1', 'fastfood_meal_2', 'fastfood_meal_6', 'fastfood_meal_8'],
+                'name' => 'Rodzinny Zestaw Burgerów',
+                'desc' => 'Burgery i frytki dla całej rodziny',
+                'meals' => ['fastfood_meal_1', 'fastfood_meal_3', 'fastfood_meal_7', 'fastfood_meal_9'],
                 'categories' => [],
+                'image' => 'zestaw_burgerów.webp',
             ],
             [
-                'name' => 'Vegetarian Fast Food',
-                'desc' => 'Meat-free quick meal options',
-                'meals' => ['fastfood_meal_5', 'fastfood_meal_9'],
-                'categories' => [DietCategoryFixtures::VEGETARIAN],
+                'name' => 'Fit Fast Food',
+                'desc' => 'Lżejsze opcje z fast food menu',
+                'meals' => ['fastfood_meal_2', 'fastfood_meal_5', 'fastfood_meal_8'],
+                'categories' => [DietCategoryFixtures::LOW_CARB],
+                'image' => 'fit_fast_food.webp',
             ],
         ];
 
         $this->createMealPlansForRestaurant($manager, RestaurantFixtures::RESTAURANT_5, $fastFoodPlans, 'fastfood_plan');
+
+
+        $polishPlans = [
+            [
+                'name' => 'Polskie Klasyki',
+                'desc' => 'Zestaw najbardziej znanych polskich dań',
+                'meals' => ['polish_meal_0', 'polish_meal_1', 'polish_meal_3', 'polish_meal_6', 'polish_meal_9'],
+                'categories' => [DietCategoryFixtures::HIGH_PROTEIN],
+                'image' => 'polskie_klasyki.webp',
+            ],
+            [
+                'name' => 'Domowy Obiadek',
+                'desc' => 'Poczuj się jak w domu u mamy',
+                'meals' => ['polish_meal_1', 'polish_meal_2', 'polish_meal_5', 'polish_meal_7'],
+                'categories' => [],
+                'image' => 'domowy_obiadek.webp',
+            ],
+            [
+                'name' => 'Polska Uczta',
+                'desc' => 'Sycące dania na duży głód',
+                'meals' => ['polish_meal_1', 'polish_meal_3', 'polish_meal_8', 'polish_meal_9'],
+                'categories' => [DietCategoryFixtures::HIGH_PROTEIN],
+                'image' => 'polska_uczta.webp',
+            ],
+        ];
+
+        $this->createMealPlansForRestaurant($manager, RestaurantFixtures::RESTAURANT_6, $polishPlans, 'polish_plan');
 
         $manager->flush();
     }
@@ -151,15 +193,18 @@ class MealPlanFixtures extends Fixture implements DependentFixtureInterface
             $mealPlan->setName($data['name']);
             $mealPlan->setDescription($data['desc']);
             $mealPlan->setRestaurant($restaurant);
+            if (isset($data['image'])) {
+                $mealPlan->setImagePath($data['image']);
+            }
 
-            // Add meals to the plan
+
             foreach ($data['meals'] as $mealRef) {
                 /** @var Meal $meal */
                 $meal = $this->getReference($mealRef, Meal::class);
                 $mealPlan->addMeal($meal);
             }
 
-            // Add diet categories
+
             foreach ($data['categories'] as $categoryRef) {
                 /** @var DietCategory $category */
                 $category = $this->getReference($categoryRef, DietCategory::class);

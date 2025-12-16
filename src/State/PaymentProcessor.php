@@ -42,7 +42,8 @@ readonly class PaymentProcessor implements ProcessorInterface
 
         try {
             $session = Session::create([
-                'payment_method_types' => ['card'],
+                'payment_method_types' => ['card', 'blik'],
+                'locale' => 'pl',
                 'line_items' => [
                     [
                         'price_data' => [
@@ -50,7 +51,7 @@ readonly class PaymentProcessor implements ProcessorInterface
                             'product_data' => [
                                 'name' => 'Order #' . $order->getId(),
                             ],
-                            'unit_amount' => $order->getTotal(),
+                            'unit_amount' => (int) round($order->getTotal()),
                         ],
                         'quantity' => 1,
                     ]

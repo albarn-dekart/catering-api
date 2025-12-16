@@ -13,14 +13,23 @@ use App\Repository\OrderRepository;
 use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use App\Filter\OrderSearchFilter;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 
 #[ORM\Entity(repositoryClass: OrderRepository::class)]
 #[ORM\Table(name: '`order`')]
 #[ORM\Index(fields: ['status'])]
 #[ORM\HasLifecycleCallbacks]
+#[ApiFilter(OrderSearchFilter::class)]
+#[ApiFilter(SearchFilter::class, properties: ['status' => 'exact'])]
+#[ApiResource(order: ['id' => 'DESC'])]
 #[ApiResource(
     operations: [],
     normalizationContext: ['groups' => ['read']],
@@ -41,6 +50,7 @@ class Order
     private ?int $id = null;
 
     #[ORM\ManyToOne(inversedBy: 'orders')]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read', 'create'])]
     private ?User $customer = null;
@@ -64,8 +74,8 @@ class Order
     #[Groups(['read', 'create'])]
     private Collection $deliveries;
 
-    #[ORM\Column]
-    #[Groups(['read'])]
+    #[ORM\Column(type: Types::INTEGER)]
+    #[Groups(['create'])]
     private ?int $total = null;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -340,6 +350,41 @@ class Order
         return $this;
     }
 
+    #[Assert\Callback]
+    public function validateRestaurantConsistency(ExecutionContextInterface $context): void
+    {
+        if ($this->orderItems->isEmpty()) {
+            return;
+        }
+
+        $firstRestaurant = null;
+
+        foreach ($this->orderItems as $item) {
+            $mealPlan = $item->getMealPlan();
+            if (!$mealPlan) {
+                continue;
+            }
+
+            $currentRestaurant = $mealPlan->getRestaurant();
+
+            if (!$firstRestaurant) {
+                $firstRestaurant = $currentRestaurant;
+            } elseif ($firstRestaurant !== $currentRestaurant) {
+                $context->buildViolation('All items in an order must be from the same restaurant.')
+                    ->atPath('orderItems')
+                    ->addViolation();
+                return;
+            }
+        }
+
+        // Also ensure the order's restaurant matches the items' restaurant
+        if ($this->restaurant && $firstRestaurant && $this->restaurant !== $firstRestaurant) {
+            $context->buildViolation('The order restaurant does not match the items restaurant.')
+                ->atPath('restaurant')
+                ->addViolation();
+        }
+    }
+
     public function getDeliveryApartment(): ?string
     {
         return $this->deliveryApartment;
@@ -395,22 +440,35 @@ class Order
         if ($this->createdAt === null) {
             $this->createdAt = new \DateTime();
         }
+        $this->calculateTotal();
+    }
 
+    #[ORM\PreUpdate]
+    public function onPreUpdate(): void
+    {
+        $this->calculateTotal();
+    }
+
+    public function calculateTotal(): void
+    {
         // Calculate Total
-        if ($this->total === null) {
-            $subtotal = 0;
-            foreach ($this->orderItems as $item) {
-                if ($item->getMealPlan() && $item->getQuantity()) {
-                    $subtotal += $item->getMealPlan()->getPrice() * $item->getQuantity();
-                }
+        $subtotal = 0;
+        foreach ($this->orderItems as $item) {
+            if ($item->getMealPlan() && $item->getQuantity()) {
+                $subtotal += $item->getMealPlan()->getPrice() * $item->getQuantity();
             }
-
-            $deliveryCount = $this->deliveries->count();
-            if ($deliveryCount > 0) {
-                $subtotal *= $deliveryCount;
-            }
-            $this->total = $subtotal;
         }
+
+        $deliveryCount = $this->deliveries->count();
+        if ($deliveryCount > 0) {
+            $subtotal *= $deliveryCount;
+
+            // Add delivery fees
+            if ($this->restaurant) {
+                $subtotal += ($this->restaurant->getDeliveryPrice() * $deliveryCount);
+            }
+        }
+        $this->total = $subtotal;
 
         // Propagate Restaurant to Deliveries
         if ($this->restaurant) {

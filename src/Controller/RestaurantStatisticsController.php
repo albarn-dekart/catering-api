@@ -9,6 +9,7 @@ use App\Repository\OrderRepository;
 use App\Repository\RestaurantRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -25,9 +26,12 @@ class RestaurantStatisticsController extends AbstractController
         private readonly MealPlanRepository $mealPlanRepository,
     ) {}
 
+    /**
+     * @throws \Exception
+     */
     #[Route('/api/restaurants/{restaurantId}/statistics', name: 'get_restaurant_statistics', methods: ['GET'])]
     #[IsGranted('IS_AUTHENTICATED_FULLY')]
-    public function getRestaurantStatistics(string $restaurantId): JsonResponse
+    public function getRestaurantStatistics(string $restaurantId, Request $request): JsonResponse
     {
         // Get the restaurant entity
         $restaurant = $this->restaurantRepository->find($restaurantId);
@@ -47,21 +51,34 @@ class RestaurantStatisticsController extends AbstractController
             }
         }
 
-        // Get restaurant-specific statistics
-        $totalRevenue = $this->orderRepository->getTotalRevenueByRestaurant($restaurant);
-        $totalOrders = $this->orderRepository->getOrderCountByRestaurant($restaurant);
-        $activeOrders = $this->orderRepository->getActiveOrdersByRestaurant($restaurant);
+        $startDateStr = $request->query->get('startDate');
+        $endDateStr = $request->query->get('endDate');
 
-        // Calculate completed orders (all non-unpaid orders minus active orders)
+        $startDate = $startDateStr ? new \DateTime($startDateStr) : null;
+        $endDate = $endDateStr ? new \DateTime($endDateStr) : null;
+
+        // Set times to cover full days
+        if ($startDate) {
+            $startDate->setTime(0, 0, 0);
+        }
+        if ($endDate) {
+            $endDate->setTime(23, 59, 59);
+        }
+
+        // Get restaurant-specific statistics
+        $totalRevenue = $this->orderRepository->getTotalRevenueByRestaurant($restaurant, $startDate, $endDate);
+        $totalOrders = $this->orderRepository->getOrderCountByRestaurant($restaurant, $startDate, $endDate);
+        $activeOrders = $this->orderRepository->getActiveOrdersByRestaurant($restaurant, $startDate, $endDate);
+
         $completedOrders = $totalOrders - $activeOrders;
 
         // Get delivery statistics
-        $deliveriesByStatus = $this->deliveryRepository->getDeliveriesByStatus($restaurant);
+        $deliveriesByStatus = $this->deliveryRepository->getDeliveriesByStatus($restaurant, $startDate, $endDate);
         $totalDeliveries = array_sum($deliveriesByStatus);
-        $deliverySuccessRate = $this->deliveryRepository->getDeliverySuccessRate($restaurant);
+        $deliverySuccessRate = $this->deliveryRepository->getDeliverySuccessRate($restaurant, $startDate, $endDate);
 
         // Get popular meal plans
-        $popularMealPlansData = $this->mealPlanRepository->getPopularMealPlans(5, $restaurant);
+        $popularMealPlansData = $this->mealPlanRepository->getPopularMealPlans(5, $restaurant, $startDate, $endDate);
         $popularMealPlans = array_map(function ($item) {
             return [
                 'name' => $item['name'],
@@ -69,8 +86,11 @@ class RestaurantStatisticsController extends AbstractController
             ];
         }, $popularMealPlansData);
 
-        // Get revenue time series for charts (last 30 days)
-        $revenueTimeSeries = $this->orderRepository->getRevenueTimeSeries(30, $restaurant);
+        // Get revenue time series for charts (last 30 days or range)
+        $revenueTimeSeries = $this->orderRepository->getRevenueTimeSeries(30, $restaurant, $startDate, $endDate);
+
+        // Get daily orders time series
+        $dailyOrdersTimeSeries = $this->orderRepository->getDailyOrdersTimeSeries(30, $restaurant, $startDate, $endDate);
 
         return $this->json([
             'totalRevenue' => $totalRevenue,
@@ -81,6 +101,7 @@ class RestaurantStatisticsController extends AbstractController
             'deliverySuccessRate' => $deliverySuccessRate,
             'popularMealPlans' => $popularMealPlans,
             'revenueTimeSeries' => $revenueTimeSeries,
+            'dailyOrdersTimeSeries' => $dailyOrdersTimeSeries,
         ]);
     }
 }

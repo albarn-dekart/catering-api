@@ -33,44 +33,61 @@ class OrderRepository extends ServiceEntityRepository
     /**
      * Get the total revenue from all orders (excluding unpaid orders)
      */
-    public function getTotalRevenue(): float
+    public function getTotalRevenue(?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): float
     {
-        $result = $this->createQueryBuilder('o')
+        $qb = $this->createQueryBuilder('o')
             ->select('SUM(o.total)')
-            ->where('o.status != :unpaidStatus')
-            ->setParameter('unpaidStatus', OrderStatus::Unpaid)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->where('o.status NOT IN (:excludedStatuses)')
+            ->setParameter('excludedStatuses', [OrderStatus::Unpaid, OrderStatus::Cancelled]);
 
-        return $result ? (float) $result / 100 : 0.0; // Convert cents to euros
+        if ($startDate && $endDate) {
+            $qb->andWhere('o.createdAt >= :startDate')
+                ->andWhere('o.createdAt <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
+        }
+
+        return $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
      * Get the total revenue for a specific restaurant
      */
-    public function getTotalRevenueByRestaurant(Restaurant $restaurant): float
+    public function getTotalRevenueByRestaurant(Restaurant $restaurant, ?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): float
     {
-        $result = $this->createQueryBuilder('o')
+        $qb = $this->createQueryBuilder('o')
             ->select('SUM(o.total)')
             ->where('o.restaurant = :restaurant')
-            ->andWhere('o.status != :unpaidStatus')
+            ->andWhere('o.status NOT IN (:excludedStatuses)')
             ->setParameter('restaurant', $restaurant)
-            ->setParameter('unpaidStatus', OrderStatus::Unpaid)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('excludedStatuses', [OrderStatus::Unpaid, OrderStatus::Cancelled]);
 
-        return $result ? (float) $result / 100 : 0.0; // Convert cents to euros
+        if ($startDate && $endDate) {
+            $qb->andWhere('o.createdAt >= :startDate')
+                ->andWhere('o.createdAt <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
+        }
+
+        return $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
      * Get the count of orders grouped by status
      * Returns associative array like ['Paid' => 10, 'Active' => 5, ...]
      */
-    public function getOrderCountByStatus(): array
+    public function getOrderCountByStatus(?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): array
     {
         $qb = $this->createQueryBuilder('o')
             ->select('o.status as status, COUNT(o.id) as count')
             ->groupBy('o.status');
+
+        if ($startDate && $endDate) {
+            $qb->andWhere('o.createdAt >= :startDate')
+                ->andWhere('o.createdAt <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
+        }
 
         $results = $qb->getQuery()->getResult();
 
@@ -88,16 +105,21 @@ class OrderRepository extends ServiceEntityRepository
     /**
      * Get the average order value (excluding unpaid orders)
      */
-    public function getAverageOrderValue(): float
+    public function getAverageOrderValue(?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): float
     {
-        $result = $this->createQueryBuilder('o')
+        $qb = $this->createQueryBuilder('o')
             ->select('AVG(o.total)')
-            ->where('o.status != :unpaidStatus')
-            ->setParameter('unpaidStatus', OrderStatus::Unpaid)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->where('o.status NOT IN (:excludedStatuses)')
+            ->setParameter('excludedStatuses', [OrderStatus::Unpaid, OrderStatus::Cancelled]);
 
-        return $result ? (float) $result / 100 : 0.0; // Convert cents to euros
+        if ($startDate && $endDate) {
+            $qb->andWhere('o.createdAt >= :startDate')
+                ->andWhere('o.createdAt <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
+        }
+
+        return $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
@@ -127,8 +149,8 @@ class OrderRepository extends ServiceEntityRepository
         // For simplicity, we'll return the revenue for the last 12 months
         $qb = $this->createQueryBuilder('o')
             ->select('o.total')
-            ->where('o.status != :unpaidStatus')
-            ->setParameter('unpaidStatus', OrderStatus::Unpaid)
+            ->where('o.status NOT IN (:excludedStatuses)')
+            ->setParameter('excludedStatuses', [OrderStatus::Unpaid, OrderStatus::Cancelled])
             ->orderBy('o.id', 'DESC');
 
         $orders = $qb->getQuery()->getResult();
@@ -136,7 +158,7 @@ class OrderRepository extends ServiceEntityRepository
         // Simple aggregation - in production, you'd want to use SQL DATE functions
         $revenue = [];
         foreach ($orders as $order) {
-            $revenue[] = $order['total'] / 100; // Convert cents to euros
+            $revenue[] = (float) $order['total'];
         }
 
         return $revenue;
@@ -145,14 +167,21 @@ class OrderRepository extends ServiceEntityRepository
     /**
      * Get the count of orders for a specific restaurant
      */
-    public function getOrderCountByRestaurant(Restaurant $restaurant): int
+    public function getOrderCountByRestaurant(Restaurant $restaurant, ?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): int
     {
-        $result = $this->createQueryBuilder('o')
+        $qb = $this->createQueryBuilder('o')
             ->select('COUNT(o.id)')
             ->where('o.restaurant = :restaurant')
-            ->setParameter('restaurant', $restaurant)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('restaurant', $restaurant);
+
+        if ($startDate && $endDate) {
+            $qb->andWhere('o.createdAt >= :startDate')
+                ->andWhere('o.createdAt <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
+        }
+
+        $result = $qb->getQuery()->getSingleScalarResult();
 
         return $result ? (int) $result : 0;
     }
@@ -160,16 +189,23 @@ class OrderRepository extends ServiceEntityRepository
     /**
      * Get the count of active orders (Paid or Active status) for a specific restaurant
      */
-    public function getActiveOrdersByRestaurant(Restaurant $restaurant): int
+    public function getActiveOrdersByRestaurant(Restaurant $restaurant, ?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): int
     {
-        $result = $this->createQueryBuilder('o')
+        $qb = $this->createQueryBuilder('o')
             ->select('COUNT(o.id)')
             ->where('o.restaurant = :restaurant')
             ->andWhere('o.status IN (:activeStatuses)')
             ->setParameter('restaurant', $restaurant)
-            ->setParameter('activeStatuses', [OrderStatus::Paid, OrderStatus::Active])
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('activeStatuses', [OrderStatus::Paid, OrderStatus::Active]);
+
+        if ($startDate && $endDate) {
+            $qb->andWhere('o.createdAt >= :startDate')
+                ->andWhere('o.createdAt <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
+        }
+
+        $result = $qb->getQuery()->getSingleScalarResult();
 
         return $result ? (int) $result : 0;
     }
@@ -178,25 +214,36 @@ class OrderRepository extends ServiceEntityRepository
      * Get revenue time series data for charts
      * Returns array of ['date' => 'YYYY-MM-DD', 'revenue' => float] for the last N days
      */
-    public function getRevenueTimeSeries(int $days = 30, ?Restaurant $restaurant = null): array
+    public function getRevenueTimeSeries(int $days = 30, ?Restaurant $restaurant = null, ?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): array
     {
-        $endDate = new DateTime('today');
-        $startDate = (new DateTime('today'))->modify("-$days days");
+        if ($startDate && $endDate) {
+            $start = \DateTime::createFromInterface($startDate);
+            $end = \DateTime::createFromInterface($endDate);
+        } else {
+            $end = new DateTime('today');
+            $start = (new DateTime('today'))->modify("-$days days");
+        }
+
+        // Ensure end includes the full day if it's set to midnight (handled by caller or here)
+        // If passed as 2023-10-25 23:59:59 it's fine.
+        // If passed as 2023-10-25 00:00:00 we might miss data if query is <=.
+        // It uses strings.
 
         $conn = $this->getEntityManager()->getConnection();
 
         $sql = '
             SELECT DATE(created_at) as date, SUM(total) as revenue
             FROM "order"
-            WHERE status != :unpaidStatus
+            WHERE status NOT IN (:unpaidStatus, :cancelledStatus)
             AND created_at >= :startDate
             AND created_at <= :endDate
         ';
 
         $params = [
             'unpaidStatus' => OrderStatus::Unpaid->value,
-            'startDate' => $startDate->format('Y-m-d H:i:s'),
-            'endDate' => $endDate->format('Y-m-d 23:59:59'),
+            'cancelledStatus' => OrderStatus::Cancelled->value,
+            'startDate' => $start->format('Y-m-d H:i:s'),
+            'endDate' => $end->format('Y-m-d H:i:s'),
         ];
 
         if ($restaurant) {
@@ -211,15 +258,19 @@ class OrderRepository extends ServiceEntityRepository
 
         // Format results and fill missing dates with 0 revenue
         $timeSeries = [];
-        $current = clone $startDate;
+        $current = clone $start;
+        // Strip time for loop comparison
+        $current->setTime(0, 0, 0);
+        $loopEnd = clone $end;
+        $loopEnd->setTime(0, 0, 0);
 
-        while ($current <= $endDate) {
+        while ($current <= $loopEnd) {
             $dateStr = $current->format('Y-m-d');
             $revenue = 0.0;
 
             foreach ($results as $result) {
                 if ($result['date'] === $dateStr) {
-                    $revenue = (float) $result['revenue'] / 100; // Convert cents to euros
+                    $revenue = (float) $result['revenue'];
                     break;
                 }
             }
@@ -227,6 +278,75 @@ class OrderRepository extends ServiceEntityRepository
             $timeSeries[] = [
                 'date' => $dateStr,
                 'revenue' => $revenue
+            ];
+
+            $current->modify('+1 day');
+        }
+
+        return $timeSeries;
+    }
+    /**
+     * Get daily orders count time series data for charts
+     * Returns array of ['date' => 'YYYY-MM-DD', 'count' => int] for the last N days
+     */
+    public function getDailyOrdersTimeSeries(int $days = 30, ?Restaurant $restaurant = null, ?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): array
+    {
+        if ($startDate && $endDate) {
+            $start = \DateTime::createFromInterface($startDate);
+            $end = \DateTime::createFromInterface($endDate);
+        } else {
+            $end = new DateTime('today');
+            $start = (new DateTime('today'))->modify("-$days days");
+        }
+
+        $conn = $this->getEntityManager()->getConnection();
+
+        $sql = '
+            SELECT DATE(created_at) as date, COUNT(id) as count
+            FROM "order"
+            WHERE status NOT IN (:unpaidStatus, :cancelledStatus)
+            AND created_at >= :startDate
+            AND created_at <= :endDate
+        ';
+
+        $params = [
+            'unpaidStatus' => OrderStatus::Unpaid->value,
+            'cancelledStatus' => OrderStatus::Cancelled->value,
+            'startDate' => $start->format('Y-m-d H:i:s'),
+            'endDate' => $end->format('Y-m-d H:i:s'),
+        ];
+
+        if ($restaurant) {
+            $sql .= ' AND restaurant_id = :restaurantId';
+            $params['restaurantId'] = $restaurant->getId();
+        }
+
+        $sql .= ' GROUP BY DATE(created_at) ORDER BY date ASC';
+
+        $stmt = $conn->prepare($sql);
+        $results = $stmt->executeQuery($params)->fetchAllAssociative();
+
+        // Format results and fill missing dates with 0 counts
+        $timeSeries = [];
+        $current = clone $start;
+        $current->setTime(0, 0, 0);
+        $loopEnd = clone $end;
+        $loopEnd->setTime(0, 0, 0);
+
+        while ($current <= $loopEnd) {
+            $dateStr = $current->format('Y-m-d');
+            $count = 0;
+
+            foreach ($results as $result) {
+                if ($result['date'] === $dateStr) {
+                    $count = (int) $result['count'];
+                    break;
+                }
+            }
+
+            $timeSeries[] = [
+                'date' => $dateStr,
+                'count' => $count
             ];
 
             $current->modify('+1 day');

@@ -18,87 +18,91 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
 {
     public function load(ObjectManager $manager): void
     {
-        $faker = Factory::create('en_US');
+        $faker = Factory::create('pl_PL');
+        $ordersToUpdate = []; // Array to hold orders that need a final total calculation
 
-        // Process each order and create deliveries
         for ($i = 0; $i < 80; $i++) {
             /** @var Order $order */
             $order = $this->getReference("order_$i", Order::class);
             $restaurant = $order->getRestaurant();
 
-            // Determine order creation date (within last 90 days)
-            $daysAgo = $faker->numberBetween(0, 90);
-            $orderDate = new DateTimeImmutable("-$daysAgo days");
+            $orderDate = $order->getCreatedAt() ? DateTimeImmutable::createFromMutable($order->getCreatedAt()) : new DateTimeImmutable();
 
-            // Create 5-12 deliveries per order
+            /** @var User[] $availableDrivers */
+            $availableDrivers = $restaurant->getDrivers();
             $numDeliveries = $faker->numberBetween(5, 12);
+            $deliveryPeriodDaysStart = $faker->numberBetween(1, 7);
 
-            // Determine delivery period (7-21 days from order date)
-            $deliveryPeriodDays = $faker->numberBetween(7, 21);
-
-            // Get available drivers for this restaurant
-            $drivers = iterator_to_array($restaurant->getDrivers());
-
-            for ($d = 0; $d < $numDeliveries; $d++) {
+            for ($j = 0; $j < $numDeliveries; $j++) {
                 $delivery = new Delivery();
-                $delivery->setOrder($order);
                 $delivery->setRestaurant($restaurant);
-
-                // Set delivery date (distributed across the delivery period)
-                $dayOffset = (int) floor(($d / $numDeliveries) * $deliveryPeriodDays);
-                $deliveryDate = $orderDate->modify("+$dayOffset days");
+                $deliveryDate = $orderDate->modify('+' . ($deliveryPeriodDaysStart + $j) . ' days');
                 $delivery->setDeliveryDate($deliveryDate);
+                // Assign a random driver
+                /** @var User|null $driver */
+                $driver = $faker->randomElement($availableDrivers);
+                $delivery->setDriver($driver);
 
-                // Set status based on order status and delivery date
-                $status = $this->determineDeliveryStatus(
-                    $order->getStatus(),
-                    $deliveryDate,
-                    $faker
-                );
-                $delivery->setStatus($status);
+                // Determine status based on order status and date
+                $delivery->setStatus($this->getDeliveryStatus($order->getStatus(), $deliveryDate, $faker));
 
-                // Assign driver for non-pending deliveries
-                if ($status !== DeliveryStatus::Pending && count($drivers) > 0) {
-                    /** @var User|null $driver */
-                    $driver = $faker->randomElement($drivers);
-                    $delivery->setDriver($driver);
-                }
-
+                $delivery->setOrder($order);
                 $manager->persist($delivery);
             }
-        }
 
+            $ordersToUpdate[] = $order;
+        }
+        $manager->flush();
+
+        foreach ($ordersToUpdate as $order) {
+            $order->calculateTotal();
+        }
         $manager->flush();
     }
 
-    private function determineDeliveryStatus(
-        OrderStatus $orderStatus,
-        DateTimeImmutable $deliveryDate,
-        Generator $faker
-    ): DeliveryStatus {
+    private function getDeliveryStatus(OrderStatus $orderStatus, DateTimeImmutable $deliveryDate, Generator $faker): DeliveryStatus
+    {
         $now = new DateTimeImmutable();
 
-        // For Completed orders: all deliveries are delivered
+        // For Completed orders: all delivered
         if ($orderStatus === OrderStatus::Completed) {
             return DeliveryStatus::Delivered;
+        }
+
+        // For Cancelled orders: mostly failed or returned if generated
+        if ($orderStatus === OrderStatus::Cancelled) {
+            return DeliveryStatus::Failed;
         }
 
         // For Active orders: varied statuses based on delivery date
         if ($orderStatus === OrderStatus::Active) {
             if ($deliveryDate < $now) {
-                // Past deliveries: mostly delivered, some picked up
-                return $faker->boolean(90) ? DeliveryStatus::Delivered : DeliveryStatus::Picked_up;
-            } elseif ($deliveryDate->format('Y-m-d') === $now->format('Y-m-d')) {
-                // Today's deliveries: mix of statuses
+                // Past deliveries: mostly delivered, some picked up, failed or returned
                 $rand = $faker->numberBetween(1, 100);
-                if ($rand <= 40) {
+                if ($rand <= 85) {
                     return DeliveryStatus::Delivered;
-                } elseif ($rand <= 70) {
-                    return DeliveryStatus::Picked_up;
                 } elseif ($rand <= 90) {
-                    return DeliveryStatus::Assigned;
+                    return DeliveryStatus::Picked_up;
+                } elseif ($rand <= 95) {
+                    return DeliveryStatus::Failed;
                 } else {
+                    return DeliveryStatus::Returned;
+                }
+            } elseif ($deliveryDate->format('Y-m-d') === $now->format('Y-m-d')) {
+                // Today's deliveries: mix of statuses including issues
+                $rand = $faker->numberBetween(1, 100);
+                if ($rand <= 30) {
+                    return DeliveryStatus::Delivered;
+                } elseif ($rand <= 50) {
+                    return DeliveryStatus::Picked_up;
+                } elseif ($rand <= 70) {
+                    return DeliveryStatus::Assigned;
+                } elseif ($rand <= 80) {
                     return DeliveryStatus::Pending;
+                } elseif ($rand <= 90) {
+                    return DeliveryStatus::Failed;
+                } else {
+                    return DeliveryStatus::Returned;
                 }
             } else {
                 // Future deliveries: assigned or pending
@@ -106,7 +110,7 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
             }
         }
 
-        // For Paid, Unpaid, or Cancelled orders: all pending
+        // For Paid, Unpaid orders: all pending
         return DeliveryStatus::Pending;
     }
 

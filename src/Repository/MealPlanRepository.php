@@ -23,21 +23,30 @@ class MealPlanRepository extends ServiceEntityRepository
      * Optionally filter by restaurant
      * Returns array of meal plan details including restaurant info
      */
-    public function getPopularMealPlans(int $limit = 5, ?Restaurant $restaurant = null): array
+    public function getPopularMealPlans(int $limit = 5, ?Restaurant $restaurant = null, ?\DateTimeInterface $startDate = null, ?\DateTimeInterface $endDate = null): array
     {
         $qb = $this->createQueryBuilder('mp')
             ->select('mp', 'COUNT(oi.id) as orderCount')
             ->leftJoin('mp.restaurant', 'r')
             ->addSelect('r')
             ->leftJoin('App\Entity\OrderItem', 'oi', 'WITH', 'oi.mealPlan = mp')
-            ->groupBy('mp.id', 'r.id')
-            ->orderBy('orderCount', 'DESC')
-            ->setMaxResults($limit);
+            ->leftJoin('oi.order', 'o');
 
         if ($restaurant) {
             $qb->where('mp.restaurant = :restaurant')
                 ->setParameter('restaurant', $restaurant);
         }
+
+        if ($startDate && $endDate) {
+            $qb->andWhere('o.createdAt >= :startDate')
+                ->andWhere('o.createdAt <= :endDate')
+                ->setParameter('startDate', $startDate)
+                ->setParameter('endDate', $endDate);
+        }
+
+        $qb->groupBy('mp.id', 'r.id')
+            ->orderBy('orderCount', 'DESC')
+            ->setMaxResults($limit);
 
         $results = $qb->getQuery()->getResult();
 

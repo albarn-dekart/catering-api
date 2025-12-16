@@ -9,12 +9,24 @@ use ApiPlatform\Metadata\GraphQl\Mutation;
 use ApiPlatform\Metadata\GraphQl\Query;
 use ApiPlatform\Metadata\GraphQl\QueryCollection;
 use App\Enum\DeliveryStatus;
+use App\Enum\OrderStatus;
 use App\Repository\DeliveryRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use App\Filter\DeliverySearchFilter;
 
 #[ORM\Entity(repositoryClass: DeliveryRepository::class)]
+#[ApiFilter(DeliverySearchFilter::class)]
+#[ApiFilter(SearchFilter::class, properties: [
+    'status' => 'exact',
+    'driver' => 'exact'
+])]
+#[ApiFilter(OrderFilter::class, properties: ['deliveryDate', 'id'])]
+#[ApiResource(order: ['id' => 'DESC'])]
 #[ApiResource(
     operations: [],
     normalizationContext: ['groups' => ['read']],
@@ -39,6 +51,7 @@ class Delivery
     private ?Restaurant $restaurant = null;
 
     #[ORM\ManyToOne(inversedBy: 'deliveries')]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read', 'update'])]
     private ?User $driver = null;
@@ -84,6 +97,10 @@ class Delivery
     {
         $this->driver = $driver;
 
+        if ($driver !== null && $this->status === DeliveryStatus::Pending) {
+            $this->setStatus(DeliveryStatus::Assigned);
+        }
+
         return $this;
     }
 
@@ -95,6 +112,42 @@ class Delivery
     public function setStatus(DeliveryStatus $status): static
     {
         $this->status = $status;
+
+        $order = $this->getOrder();
+        if ($order) {
+            // Paid -> Active
+            if (
+                $order->getStatus() === OrderStatus::Paid &&
+                ($status === DeliveryStatus::Assigned ||
+                    $status === DeliveryStatus::Picked_up ||
+                    $status === DeliveryStatus::Delivered)
+            ) {
+                $order->setStatus(OrderStatus::Active);
+            }
+
+            // Active -> Completed
+            // Only check completion if current status is Delivered and Order is Active (or Paid/Unpaid? usually Active)
+            if (
+                ($status === DeliveryStatus::Delivered || $status === DeliveryStatus::Returned) &&
+                ($order->getStatus() === OrderStatus::Active || $order->getStatus() === OrderStatus::Paid)
+            ) {
+
+                $allDelivered = true;
+                foreach ($order->getDeliveries() as $delivery) {
+                    // Check if delivery is in any terminal state (Delivered OR Returned)
+                    // Failed is NOT terminal (can still be retried)
+                    $status = $delivery->getStatus();
+                    if ($status !== DeliveryStatus::Delivered && $status !== DeliveryStatus::Returned) {
+                        $allDelivered = false;
+                        break;
+                    }
+                }
+
+                if ($allDelivered) {
+                    $order->setStatus(OrderStatus::Completed);
+                }
+            }
+        }
 
         return $this;
     }

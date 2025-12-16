@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice #{{ order.id }}</title>
+    <style>
+        body { font-family: DejaVu Sans, sans-serif; font-size: 14px; color: #333; }
+        .header { width: 100%; border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; }
+        .logo { font-size: 24px; font-weight: bold; color: #E65100; }
+        .invoice-details { text-align: right; }
+        .section-title { font-weight: bold; margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #eee; padding: 8px; text-align: left; }
+        th { background-color: #f8f8f8; }
+        .text-right { text-align: right; }
+        .total-row { font-weight: bold; background-color: #f8f8f8; }
+        .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <table class="header">
+        <tr>
+            <td style="border: none;">
+                <div class="logo">{{ order.restaurant.name }}</div>
+                <div>{{ order.restaurant.street }}</div>
+                <div>{{ order.restaurant.zipCode }} {{ order.restaurant.city }}</div>
+                <div>Tel: {{ order.restaurant.phoneNumber }}</div>
+                <div>Email: {{ order.restaurant.email }}</div>
+                {% if order.restaurant.nip %}
+                    <div>NIP: {{ order.restaurant.nip }}</div>
+                {% endif %}
+            </td>
+            <td style="border: none;" class="invoice-details">
+                <h2>FAKTURA</h2>
+                <div>Numer: <strong>INV-{{ order.id }}</strong></div>
+                <div>Data wystawienia: {{ "now"|date("Y-m-d") }}</div>
+                <div>Płatność: {{ order.paymentIntentId }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="row">
+        <div>
+            <div class="section-title">Nabywca:</div>
+            <div>{{ order.deliveryFirstName }} {{ order.deliveryLastName }}</div>
+            <div>{{ order.deliveryStreet }} {{ order.deliveryApartment }}</div>
+            <div>{{ order.deliveryZipCode }} {{ order.deliveryCity }}</div>
+            <div>Tel: {{ order.deliveryPhoneNumber }}</div>
+            <div>Email: {{ order.customer.email }}</div>
+        </div>
+    </div>
+
+    <div class="section-title">Pozycje zamówienia:</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Nazwa</th>
+                <th class="text-right">Ilość</th>
+                <th class="text-right">Cena jedn.</th>
+                <th class="text-right">Wartość</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.orderItems %}
+                {% set mealPlan = item.mealPlan %}
+                {% set mealName = mealPlan ? mealPlan.name : 'Produkt' %}
+                {% set price = mealPlan ? mealPlan.price : 0 %}
+                <tr>
+                    <td>{{ mealName }}</td>
+                    <td class="text-right">{{ item.quantity }}</td>
+                    <td class="text-right">{{ (price / 100)|number_format(2, '.', ' ') }} zł</td>
+                    <td class="text-right">{{ ((price * item.quantity) / 100)|number_format(2, '.', ' ') }} zł</td>
+                </tr>
+            {% endfor %}
+            
+            {% set deliveryCount = order.deliveries|length %}
+            {% set deliveryPrice = order.restaurant ? order.restaurant.deliveryPrice : 0 %}
+            {% set totalPerDay = deliveryCount > 0 ? (order.total / deliveryCount) : 0 %}
+            {% set foodCostPerDay = totalPerDay - deliveryPrice %}
+
+            <tr class="total-row">
+                <td colspan="3" class="text-right">Koszt produktów (dzień):</td>
+                <td class="text-right">{{ (foodCostPerDay / 100)|number_format(2, '.', ' ') }} zł</td>
+            </tr>
+            <tr>
+                <td colspan="3" class="text-right">Koszt dostawy (dzień):</td>
+                <td class="text-right">{{ (deliveryPrice / 100)|number_format(2, '.', ' ') }} zł</td>
+            </tr>
+            <tr>
+                <td colspan="3" class="text-right">Liczba dni dostaw:</td>
+                <td class="text-right">{{ deliveryCount }}</td>
+            </tr>
+            <tr class="total-row">
+                <td colspan="3" class="text-right">SUMA CAŁKOWITA:</td>
+                <td class="text-right">{{ (order.total / 100)|number_format(2, '.', ' ') }} zł</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="section-title">Harmonogram dostaw:</div>
+    <ul>
+        {% for delivery in order.deliveries %}
+            <li>{{ delivery.deliveryDate|date("Y-m-d") }} ({{ delivery.status.value }})</li>
+        {% endfor %}
+    </ul>
+
+    <div class="footer">
+        Dziękujemy za zakupy w naszym cateringu!<br>
+        Dokument wygenerowany elektronicznie.
+    </div>
+</body>
+</html>

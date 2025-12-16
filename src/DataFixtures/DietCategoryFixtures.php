@@ -20,14 +20,14 @@ class DietCategoryFixtures extends Fixture
     public function load(ObjectManager $manager): void
     {
         $categories = [
-            self::VEGETARIAN => 'Vegetarian',
-            self::VEGAN => 'Vegan',
-            self::GLUTEN_FREE => 'Gluten-Free',
+            self::VEGETARIAN => 'Wegetariańska', // Translated from Vegetarian
+            self::VEGAN => 'Wegańska', // Translated from Vegan
+            self::GLUTEN_FREE => 'Bezglutenowa', // Translated from Gluten-Free
             self::KETO => 'Keto',
             self::PALEO => 'Paleo',
-            self::LOW_CARB => 'Low-Carb',
-            self::DAIRY_FREE => 'Dairy-Free',
-            self::HIGH_PROTEIN => 'High-Protein',
+            self::LOW_CARB => 'Niskowęglowodanowa', // Translated from Low-Carb
+            self::DAIRY_FREE => 'Bezlaktozowa', // Translated from Dairy-Free
+            self::HIGH_PROTEIN => 'Wysokobiałkowa', // Translated from High-Protein
         ];
 
         foreach ($categories as $reference => $name) {

@@ -5,7 +5,10 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Repository\DeliveryRepository;
 use App\Repository\OrderRepository;
+use App\Repository\RestaurantRepository;
 use App\Repository\UserRepository;
+use DateTime;
+use Exception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,14 +21,16 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ExportController extends AbstractController
 {
     public function __construct(
-        private readonly OrderRepository $orderRepository,
-        private readonly UserRepository $userRepository,
-        private readonly DeliveryRepository $deliveryRepository
+        private readonly OrderRepository      $orderRepository,
+        private readonly UserRepository       $userRepository,
+        private readonly DeliveryRepository   $deliveryRepository,
+        private readonly RestaurantRepository $restaurantRepository
     ) {}
 
     #[Route('/api/export/orders', name: 'export_orders', methods: ['POST'])]
-    #[IsGranted('ROLE_CUSTOMER')]
-    public function exportOrders(Request $request): Response
+    #[Route('/api/restaurants/{restaurantId}/export/orders', name: 'export_restaurant_orders', methods: ['POST'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    public function exportOrders(Request $request, ?string $restaurantId = null): Response
     {
         $data = json_decode($request->getContent(), true) ?? [];
         /** @var User|null $user */
@@ -38,10 +43,18 @@ class ExportController extends AbstractController
             ->leftJoin('o.deliveries', 'deliveries')
             ->orderBy('o.id', 'DESC');
 
-        if ($this->isGranted('ROLE_RESTAURANT')) {
-            // Restaurant owners see only their restaurant's orders
-            $qb->andWhere('o.restaurant = :restaurant')
-                ->setParameter('restaurant', $user->getRestaurant());
+        if ($restaurantId) {
+            $restaurant = $this->restaurantRepository->find($restaurantId);
+            if (!$restaurant) {
+                throw $this->createNotFoundException('Restaurant not found');
+            }
+
+            if (!$this->isGranted('ROLE_ADMIN') && ($user->getRestaurant()?->getId() !== (int)$restaurantId)) {
+                throw $this->createAccessDeniedException('You do not have permission to export orders for this restaurant.');
+            }
+
+            $qb->andWhere('o.restaurant = :restaurantId')
+                ->setParameter('restaurantId', $restaurant);
         } else {
             // Customers see only their own orders
             $qb->andWhere('o.customer = :customer')
@@ -54,11 +67,6 @@ class ExportController extends AbstractController
                 ->setParameter('status', $data['status']);
         }
 
-        if (!empty($data['restaurantId'])) {
-            $qb->andWhere('o.restaurant = :restaurantId')
-                ->setParameter('restaurantId', $data['restaurantId']);
-        }
-
         $orders = $qb->getQuery()->getResult();
 
         // Create CSV response
@@ -68,14 +76,19 @@ class ExportController extends AbstractController
             // CSV Header
             fputcsv($handle, [
                 'Order ID',
+                'Order Date',
+                'Customer Name',
                 'Customer Email',
+                'Phone Number',
                 'Restaurant Name',
                 'Status',
                 'Total (PLN)',
+                'Payment ID',
                 'Delivery Start Date',
                 'Delivery End Date',
                 'Delivery Days',
                 'Delivery Address',
+                'Order Items',
             ]);
 
             // CSV Data
@@ -88,16 +101,28 @@ class ExportController extends AbstractController
                     $order->getDeliveryZipCode(),
                 ]));
 
+                $orderItemsDetails = [];
+                foreach ($order->getOrderItems() as $orderItem) {
+                    $mealPlanName = $orderItem->getMealPlan() ? $orderItem->getMealPlan()->getName() : 'Unknown';
+                    $orderItemsDetails[] = sprintf('%s x%d', $mealPlanName, $orderItem->getQuantity());
+                }
+                $orderDetailsString = implode(' | ', $orderItemsDetails);
+
                 fputcsv($handle, [
                     $order->getId(),
+                    $order->getCreatedAt()?->format('Y-m-d H:i:s') ?? 'N/A',
+                    trim(($order->getDeliveryFirstName() ?? '') . ' ' . ($order->getDeliveryLastName() ?? '')) ?: 'N/A',
                     $order->getCustomer()?->getEmail() ?? 'N/A',
+                    $order->getDeliveryPhoneNumber() ?? 'N/A',
                     $order->getRestaurant()?->getName() ?? 'N/A',
                     $order->getStatus()->value,
-                    number_format($order->getTotal() / 100, 2, '.', ''),
+                    $order->getTotal(),
+                    $order->getPaymentIntentId() ?? 'N/A',
                     $order->getDeliveryStartDate()?->format('Y-m-d') ?? 'N/A',
                     $order->getDeliveryEndDate()?->format('Y-m-d') ?? 'N/A',
                     $deliveryDays ?: 'N/A',
                     $deliveryAddress ?: 'N/A',
+                    $orderDetailsString,
                 ]);
             }
 
@@ -237,15 +262,26 @@ class ExportController extends AbstractController
         return $response;
     }
 
+    /**
+     * @throws Exception
+     */
     #[Route('/api/export/statistics', name: 'export_statistics', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN')]
-    public function exportStatistics(): Response
+    public function exportStatistics(Request $request): Response
     {
+        $data = json_decode($request->getContent(), true) ?? [];
+        $startDate = !empty($data['startDate']) ? new DateTime($data['startDate']) : null;
+        $endDate = !empty($data['endDate']) ? new DateTime($data['endDate']) : null;
+
+        $startDate?->setTime(0, 0);
+        $endDate?->setTime(23, 59, 59);
+
         // Get statistics using repository methods
-        $totalRevenue = $this->orderRepository->getTotalRevenue();
-        $orderCountsByStatus = $this->orderRepository->getOrderCountByStatus();
+        $totalRevenue = $this->orderRepository->getTotalRevenue($startDate, $endDate);
+        $orderCountsByStatus = $this->orderRepository->getOrderCountByStatus($startDate, $endDate);
         $totalOrders = array_sum($orderCountsByStatus);
-        $averageOrderValue = $this->orderRepository->getAverageOrderValue();
+        $averageOrderValue = $this->orderRepository->getAverageOrderValue($startDate, $endDate);
+        // User stats usually don't filter by date range of stats view
         $usersByRole = $this->userRepository->getTotalUsersByRole();
         $totalUsers = array_sum($usersByRole);
 
@@ -256,11 +292,15 @@ class ExportController extends AbstractController
             $averageOrderValue,
             $totalUsers,
             $orderCountsByStatus,
-            $usersByRole
+            $usersByRole,
+            $startDate,
+            $endDate
         ) {
             $handle = fopen('php://output', 'w');
 
             // CSV Header
+            fputcsv($handle, ['Report Period', $startDate && $endDate ? $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d') : 'All Time']);
+            fputcsv($handle, []);
             fputcsv($handle, ['Metric', 'Value']);
 
             // Overall Statistics
@@ -291,6 +331,152 @@ class ExportController extends AbstractController
         });
 
         $filename = 'statistics_' . date('Y-m-d_His') . '.csv';
+        $response->headers->set('Content-Type', 'text/csv');
+        $response->headers->set('Content-Disposition', "attachment; filename=\"$filename\"");
+
+        return $response;
+    }
+
+    /**
+     * @throws Exception
+     */
+    #[Route('/api/export/restaurants/{restaurantId}/statistics', name: 'export_restaurant_statistics', methods: ['POST'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    public function exportRestaurantStatistics(string $restaurantId, Request $request): Response
+    {
+        return $this->processRestaurantExport($restaurantId, $request);
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function processRestaurantExport(string $restaurantId, Request $request): Response
+    {
+        $restaurant = $this->restaurantRepository->find($restaurantId);
+
+        if (!$restaurant) {
+            throw $this->createNotFoundException('Restaurant not found');
+        }
+
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$this->isGranted('ROLE_ADMIN') && ($user->getRestaurant()?->getId() !== (int)$restaurantId)) {
+            throw $this->createAccessDeniedException('You do not have permission to export statistics for this restaurant.');
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $startDate = !empty($data['startDate']) ? new DateTime($data['startDate']) : null;
+        $endDate = !empty($data['endDate']) ? new DateTime($data['endDate']) : null;
+
+        $startDate?->setTime(0, 0);
+        $endDate?->setTime(23, 59, 59);
+
+        // Get restaurant-specific statistics
+        $totalRevenue = $this->orderRepository->getTotalRevenueByRestaurant($restaurant, $startDate, $endDate);
+        $totalOrders = $this->orderRepository->getOrderCountByRestaurant($restaurant, $startDate, $endDate);
+        $activeOrders = $this->orderRepository->getActiveOrdersByRestaurant($restaurant, $startDate, $endDate);
+        $completedOrders = $totalOrders - $activeOrders; // Conceptual approximation
+
+        // Get delivery statistics
+        $deliveriesByStatus = $this->deliveryRepository->getDeliveriesByStatus($restaurant, $startDate, $endDate);
+        $totalDeliveries = array_sum($deliveriesByStatus);
+        $deliverySuccessRate = $this->deliveryRepository->getDeliverySuccessRate($restaurant, $startDate, $endDate);
+
+        $averageOrderValue = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
+
+        // Create CSV response
+        $response = new StreamedResponse(function () use (
+            $restaurant,
+            $totalRevenue,
+            $totalOrders,
+            $averageOrderValue,
+            $activeOrders,
+            $completedOrders,
+            $totalDeliveries,
+            $deliverySuccessRate,
+            $startDate,
+            $endDate
+        ) {
+            $handle = fopen('php://output', 'w');
+
+            // CSV Header
+            fputcsv($handle, ['Restaurant Statistics Report']);
+            fputcsv($handle, ['Restaurant', $restaurant->getName()]);
+            fputcsv($handle, ['Report Period', $startDate && $endDate ? $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d') : 'All Time']);
+            fputcsv($handle, []);
+            fputcsv($handle, ['Metric', 'Value']);
+
+            // Statistics
+            fputcsv($handle, ['Total Revenue (PLN)', number_format($totalRevenue, 2, '.', '')]);
+            fputcsv($handle, ['Total Orders', $totalOrders]);
+            fputcsv($handle, ['Average Order Value (PLN)', number_format($averageOrderValue, 2, '.', '')]);
+            fputcsv($handle, ['Active Orders', $activeOrders]);
+            fputcsv($handle, ['Completed Orders', $completedOrders]);
+            fputcsv($handle, ['Total Deliveries', $totalDeliveries]);
+            fputcsv($handle, ['Delivery Success Rate (%)', number_format($deliverySuccessRate, 1, '.', '')]);
+
+            fclose($handle);
+        });
+
+        $filename = 'restaurant_statistics_' . $restaurantId . '_' . date('Y-m-d_His') . '.csv';
+        $response->headers->set('Content-Type', 'text/csv');
+        $response->headers->set('Content-Disposition', "attachment; filename=\"$filename\"");
+
+        return $response;
+    }
+
+    /**
+     * @throws Exception
+     */
+    #[Route('/api/export/restaurants/{restaurantId}/production-plan', name: 'export_production_plan', methods: ['POST'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    public function exportProductionPlan(string $restaurantId, Request $request): Response
+    {
+        $restaurant = $this->restaurantRepository->find($restaurantId);
+
+        if (!$restaurant) {
+            throw $this->createNotFoundException('Restaurant not found');
+        }
+
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$this->isGranted('ROLE_ADMIN') && ($user->getRestaurant()?->getId() !== (int)$restaurantId)) {
+            throw $this->createAccessDeniedException('You do not have permission to export production plan for this restaurant.');
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $dateStr = $data['date'] ?? 'tomorrow';
+        $date = new DateTime($dateStr);
+
+        $productionPlan = $this->deliveryRepository->getProductionPlan($restaurant, $date);
+
+        // Create CSV response
+        $response = new StreamedResponse(function () use ($restaurant, $productionPlan, $date) {
+            $handle = fopen('php://output', 'w');
+
+            // CSV Header
+            fputcsv($handle, ['Kitchen Production Plan']);
+            fputcsv($handle, ['Restaurant', $restaurant->getName()]);
+            fputcsv($handle, ['Production Date', $date->format('Y-m-d')]);
+            fputcsv($handle, []);
+            fputcsv($handle, ['Meal Plan', 'Quantity to Cook']);
+
+            // Data
+            foreach ($productionPlan as $item) {
+                fputcsv($handle, [
+                    $item['mealName'],
+                    $item['count']
+                ]);
+            }
+
+            // Summary
+            fputcsv($handle, []);
+            fputcsv($handle, ['Total Meals', array_sum(array_column($productionPlan, 'count'))]);
+
+            fclose($handle);
+        });
+
+        $filename = 'production_plan_' . $restaurantId . '_' . $date->format('Y-m-d') . '.csv';
         $response->headers->set('Content-Type', 'text/csv');
         $response->headers->set('Content-Disposition', "attachment; filename=\"$filename\"");
 

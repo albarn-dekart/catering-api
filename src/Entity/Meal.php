@@ -21,8 +21,15 @@ use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Vich\UploaderBundle\Mapping\Annotation as Vich;
 
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\RangeFilter; // Added RangeFilter
+use App\Filter\MealSearchFilter;
+
 #[ORM\Entity(repositoryClass: MealRepository::class)]
 #[Vich\Uploadable]
+#[ApiFilter(MealSearchFilter::class)]
+#[ApiFilter(RangeFilter::class, properties: ['price', 'calories', 'protein', 'fat', 'carbs'])]
+#[ApiResource(order: ['id' => 'DESC'])]
 #[ApiResource(
     operations: [],
     normalizationContext: ['groups' => ['read']],
@@ -67,10 +74,10 @@ class Meal implements ImageUploadableInterface
     #[Groups(['read', 'create', 'update'])]
     private ?float $carbs = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::INTEGER)]
     #[Assert\GreaterThanOrEqual(value: 0)]
-    #[Groups(['read', 'create', 'update'])]
-    private ?int $price = null;
+    #[Groups(['create', 'update', 'read'])]
+    private ?int $price = null; // Changed to int
 
     #[ORM\ManyToOne(inversedBy: 'meals')]
     #[ORM\JoinColumn(nullable: false)]

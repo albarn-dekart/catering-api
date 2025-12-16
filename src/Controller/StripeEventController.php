@@ -5,7 +5,10 @@ namespace App\Controller;
 use App\Entity\Order;
 use App\Enum\OrderStatus;
 use App\Repository\OrderRepository;
+use App\Service\InvoiceService;
+use App\Service\MailerService;
 use Doctrine\ORM\EntityManagerInterface;
+use Exception;
 use Stripe\Checkout\Session;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\Webhook;
@@ -29,7 +32,9 @@ class StripeEventController extends AbstractController
         private readonly string                 $stripeWebhookSecret,
         private readonly EntityManagerInterface $entityManager,
         private readonly OrderRepository $orderRepository,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly MailerService $mailerService,
+        private readonly InvoiceService $invoiceService
     ) {
         Stripe::setApiKey($this->stripeSecretKey);
     }
@@ -84,7 +89,23 @@ class StripeEventController extends AbstractController
                             $order->setPaymentIntentId($session->payment_intent);
                             $this->entityManager->flush();
 
-                            $this->logger->info('Order updated to Paid', [
+                            // Generate Invoice PDF
+                            try {
+                                $invoicePdf = $this->invoiceService->generateInvoicePdf($order);
+                                $invoiceName = sprintf('Faktura_%s.pdf', $order->getId());
+
+                                // Send confirmation email with Invoice
+                                $this->mailerService->sendOrderConfirmation($order, $invoicePdf, $invoiceName);
+                            } catch (Exception $e) {
+                                $this->logger->error('Failed to generate/send invoice', [
+                                    'order_id' => $orderId,
+                                    'error' => $e->getMessage()
+                                ]);
+                                // Fallback: Send email without invoice if generation fails
+                                $this->mailerService->sendOrderConfirmation($order);
+                            }
+
+                            $this->logger->info('Order updated to Paid, Invoice generated', [
                                 'order_id' => $orderId,
                                 'payment_intent_id' => $session->payment_intent
                             ]);

@@ -65,6 +65,12 @@ class Address
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(groups: ['create', 'update'])]
+    #[Assert\Length(min: 9, max: 20, groups: ['create', 'update'])]
+    #[Assert\Regex(
+        pattern: '/^(\+48)?\s?(\d{3}[-\s]?\d{3}[-\s]?\d{3}|\d{9})$/',
+        message: 'Phone number must be valid (e.g. 123456789 or +48 123 456 789)',
+        groups: ['create', 'update']
+    )]
     #[Groups(['read', 'create', 'update', 'read'])]
     private ?string $phoneNumber = null;
 
@@ -84,6 +90,11 @@ class Address
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(groups: ['create', 'update'])]
+    #[Assert\Regex(
+        pattern: '/^\d{2}-\d{3}$/',
+        message: 'Zip code must be in XX-XXX format (e.g. 12-345)',
+        groups: ['create', 'update']
+    )]
     #[Groups(['read', 'create', 'update', 'read'])]
     private ?string $zipCode = null;
 

@@ -9,6 +9,7 @@
     "ext-fileinfo": "*",
     "ext-iconv": "*",
     "ext-intl": "*",
+    "api-platform/core": "*",
     "api-platform/doctrine-orm": "*",
     "api-platform/graphql": "^4.1",
     "api-platform/symfony": "*",
@@ -16,6 +17,7 @@
     "doctrine/doctrine-bundle": "^2.13",
     "doctrine/doctrine-migrations-bundle": "^3.3",
     "doctrine/orm": "^3.3",
+    "dompdf/dompdf": "^3.1",
     "gesdinet/jwt-refresh-token-bundle": "^1.4",
     "lexik/jwt-authentication-bundle": "^3.1",
     "nelmio/cors-bundle": "^2.5",
@@ -40,7 +42,8 @@
     "symfony/twig-bundle": "7.1.*",
     "symfony/validator": "7.1.*",
     "symfony/yaml": "7.1.*",
-    "vich/uploader-bundle": "^2.7"
+    "vich/uploader-bundle": "^2.7",
+    "webonyx/graphql-php": "^15.27"
   },
   "config": {
     "allow-plugins": {

@@ -18,6 +18,7 @@ class UserFixtures extends Fixture
     public const RESTAURANT_OWNER_3 = 'user_restaurant_owner_3';
     public const RESTAURANT_OWNER_4 = 'user_restaurant_owner_4';
     public const RESTAURANT_OWNER_5 = 'user_restaurant_owner_5';
+    public const RESTAURANT_OWNER_6 = 'user_restaurant_owner_6';
 
     // Driver users
     public const DRIVER_1 = 'user_driver_1';
@@ -28,6 +29,8 @@ class UserFixtures extends Fixture
     public const DRIVER_6 = 'user_driver_6';
     public const DRIVER_7 = 'user_driver_7';
     public const DRIVER_8 = 'user_driver_8';
+    public const DRIVER_9 = 'user_driver_9';
+    public const DRIVER_10 = 'user_driver_10';
 
     // Customer users
     public const CUSTOMER_1 = 'user_customer_1';
@@ -56,6 +59,7 @@ class UserFixtures extends Fixture
             self::RESTAURANT_OWNER_3 => 'restaurant3@example.com',
             self::RESTAURANT_OWNER_4 => 'restaurant4@example.com',
             self::RESTAURANT_OWNER_5 => 'restaurant5@example.com',
+            self::RESTAURANT_OWNER_6 => 'restaurant6@example.com',
         ];
 
         foreach ($restaurantOwners as $reference => $email) {
@@ -77,6 +81,8 @@ class UserFixtures extends Fixture
             self::DRIVER_6 => 'driver6@example.com',
             self::DRIVER_7 => 'driver7@example.com',
             self::DRIVER_8 => 'driver8@example.com',
+            self::DRIVER_9 => 'driver9@example.com',
+            self::DRIVER_10 => 'driver10@example.com',
         ];
 
         foreach ($drivers as $reference => $email) {

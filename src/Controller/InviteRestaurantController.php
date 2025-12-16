@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Restaurant;
 use App\Entity\RestaurantCategory;
 use App\Entity\User;
+use App\Service\MailerService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -13,13 +14,16 @@ use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[AsController]
 class InviteRestaurantController extends AbstractController
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        private readonly UserPasswordHasherInterface $passwordHasher
+        private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly ValidatorInterface $validator,
+        private readonly MailerService $mailerService
     ) {}
 
     #[Route('/api/invite-restaurant', name: 'invite_restaurant', methods: ['POST'])]
@@ -29,32 +33,18 @@ class InviteRestaurantController extends AbstractController
         $data = json_decode($request->getContent(), true);
 
         $email = $data['email'] ?? null;
-        $plainPassword = $data['plainPassword'] ?? null;
         $restaurantName = $data['restaurantName'] ?? null;
         $restaurantDescription = $data['restaurantDescription'] ?? null;
         $categoryIds = $data['categoryIds'] ?? [];
 
         // Validate required fields
-        if (!$email || !$plainPassword || !$restaurantName) {
+        if (!$email || !$restaurantName) {
             return new JsonResponse([
-                'error' => 'Email, password, and restaurant name are required'
+                'error' => 'Email and restaurant name are required'
             ], 400);
         }
 
-        // Validate password strength
-        if (strlen($plainPassword) < 8) {
-            return new JsonResponse([
-                'error' => 'Password must be at least 8 characters'
-            ], 400);
-        }
-
-        // Check if user already exists
-        $existingUser = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
-        if ($existingUser) {
-            return new JsonResponse([
-                'error' => 'User with this email already exists'
-            ], 409);
-        }
+        $plainPassword = bin2hex(random_bytes(6)); // Generates a 12-char random password
 
         // Create Restaurant entity
         $restaurant = new Restaurant();
@@ -67,7 +57,7 @@ class InviteRestaurantController extends AbstractController
         if (!empty($categoryIds)) {
             $categoryRepository = $this->entityManager->getRepository(RestaurantCategory::class);
             foreach ($categoryIds as $categoryId) {
-                // Extract numeric ID from IRI if needed (e.g., "/api/restaurant_categories/1" -> 1)
+                // Extract numeric ID from IRI if needed
                 $numericId = is_numeric($categoryId)
                     ? (int) $categoryId
                     : (int) preg_replace('/.*\//', '', $categoryId);
@@ -85,6 +75,22 @@ class InviteRestaurantController extends AbstractController
         $user->setRoles(['ROLE_RESTAURANT']);
         $user->setRestaurant($restaurant);
 
+        // Validate Entities
+        $errors = $this->validator->validate($restaurant);
+        $userErrors = $this->validator->validate($user);
+
+        $errorMessages = [];
+        foreach ($errors as $error) {
+            $errorMessages[] = $error->getMessage();
+        }
+        foreach ($userErrors as $error) {
+            $errorMessages[] = $error->getMessage();
+        }
+
+        if (count($errorMessages) > 0) {
+            return new JsonResponse(['error' => implode(', ', array_unique($errorMessages))], 400);
+        }
+
         // Hash password
         $hashedPassword = $this->passwordHasher->hashPassword($user, $plainPassword);
         $user->setPassword($hashedPassword);
@@ -93,6 +99,9 @@ class InviteRestaurantController extends AbstractController
         $this->entityManager->persist($restaurant);
         $this->entityManager->persist($user);
         $this->entityManager->flush();
+
+        // Send invitation email
+        $this->mailerService->sendRestaurantInvitation($email, $plainPassword, $restaurantName);
 
         return new JsonResponse([
             'user' => [
