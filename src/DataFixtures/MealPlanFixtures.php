@@ -21,14 +21,14 @@ class MealPlanFixtures extends Fixture implements DependentFixtureInterface
                 'desc' => 'Tydzień tradycyjnych włoskich przysmaków',
                 'meals' => ['italian_meal_0', 'italian_meal_1', 'italian_meal_2', 'italian_meal_5', 'italian_meal_6'],
                 'categories' => [DietCategoryFixtures::HIGH_PROTEIN],
-                'image' => 'włoski_tydzień.webp',
+                'image' => 'klas_wlo.webp',
             ],
             [
                 'name' => 'Włoski Wegetariański',
                 'desc' => 'Włoskie przysmaki bez mięsa',
                 'meals' => ['italian_meal_0', 'italian_meal_3', 'italian_meal_4', 'italian_meal_5'],
                 'categories' => [DietCategoryFixtures::VEGETARIAN],
-                'image' => 'włoski_wegetariański.webp',
+                'image' => 'wlo_weg.webp',
             ],
             [
                 'name' => 'Włoscy Miłośnicy Makaronów',

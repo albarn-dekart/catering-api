@@ -36,9 +36,9 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
     denormalizationContext: ['groups' => ['create', 'update']],
     graphQlOperations: [
         new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER') or is_granted('ROLE_DRIVER')"),
-        new Query(security: "is_granted('ROLE_CUSTOMER') and object.getCustomer() == user or object.getRestaurant() == user.getRestaurant() or is_granted('ROLE_ADMIN')"),
+        new Query(security: "is_granted('ROLE_CUSTOMER') and object.getCustomer() == user or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or is_granted('ROLE_ADMIN')"),
         new Mutation(security: "is_granted('ROLE_CUSTOMER')", name: 'create'),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or (is_granted('ROLE_CUSTOMER') and object.getCustomer() == user)", name: 'update'),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or (is_granted('ROLE_CUSTOMER') and object.getCustomer() == user)", name: 'update'),
         new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
     ],
 )]
@@ -469,14 +469,5 @@ class Order
             }
         }
         $this->total = $subtotal;
-
-        // Propagate Restaurant to Deliveries
-        if ($this->restaurant) {
-            foreach ($this->deliveries as $delivery) {
-                if (!$delivery->getRestaurant()) {
-                    $delivery->setRestaurant($this->restaurant);
-                }
-            }
-        }
     }
 }

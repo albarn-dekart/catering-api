@@ -38,7 +38,7 @@ class InviteDriverController extends AbstractController
 
         /** @var User|null $currentUser */
         $currentUser = $this->getUser();
-        $restaurant = $currentUser->getRestaurant();
+        $restaurant = $currentUser->getOwnedRestaurant();
 
         if ($this->isGranted('ROLE_ADMIN') && isset($data['restaurantId'])) {
             $restaurant = $this->entityManager->getRepository(Restaurant::class)->find($data['restaurantId']);
@@ -63,7 +63,8 @@ class InviteDriverController extends AbstractController
         $user = new User();
         $user->setEmail($email);
         $user->setRoles(['ROLE_DRIVER']);
-        $user->setRestaurant($restaurant);
+        // Add driver to restaurant's drivers collection
+        $restaurant->addDriver($user);
 
         // Validate User
         $errors = $this->validator->validate($user);

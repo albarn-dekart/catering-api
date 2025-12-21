@@ -41,12 +41,12 @@ use App\Filter\MealPlanSearchFilter;
         new QueryCollection(security: "is_granted('PUBLIC_ACCESS')"),
         new Query(security: "is_granted('PUBLIC_ACCESS') and (object.getOwner() == null or object.getOwner() == user)"),
         new Mutation(
-            security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or is_granted('ROLE_CUSTOMER')",
-            securityPostDenormalize: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or (is_granted('ROLE_CUSTOMER') and object.getOwner() == user)",
+            security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or is_granted('ROLE_CUSTOMER')",
+            securityPostDenormalize: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or (is_granted('ROLE_CUSTOMER') and object.getOwner() == user)",
             name: 'create'
         ),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or (is_granted('ROLE_CUSTOMER') and object.getOwner() == user)", name: 'update'),
-        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant()) or (is_granted('ROLE_CUSTOMER') and object.getOwner() == user)", name: 'delete')
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or (is_granted('ROLE_CUSTOMER') and object.getOwner() == user)", name: 'update'),
+        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or (is_granted('ROLE_CUSTOMER') and object.getOwner() == user)", name: 'delete')
     ],
 )]
 class MealPlan implements ImageUploadableInterface

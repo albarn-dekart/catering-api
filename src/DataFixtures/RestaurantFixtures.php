@@ -135,7 +135,7 @@ class RestaurantFixtures extends Fixture implements DependentFixtureInterface
             // Set owner
             /** @var User|null $owner */
             $owner = $this->getReference($data['owner'], User::class);
-            $owner->setRestaurant($restaurant);
+            $restaurant->setOwner($owner);
 
             // Add restaurant categories
             foreach ($data['categories'] as $categoryRef) {
@@ -148,7 +148,7 @@ class RestaurantFixtures extends Fixture implements DependentFixtureInterface
             foreach ($data['drivers'] as $driverRef) {
                 /** @var User|null $driver */
                 $driver = $this->getReference($driverRef, User::class);
-                $driver->setRestaurant($restaurant);
+                $restaurant->addDriver($driver);
             }
 
             $manager->persist($restaurant);

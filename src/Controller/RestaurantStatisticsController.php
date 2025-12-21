@@ -46,7 +46,7 @@ class RestaurantStatisticsController extends AbstractController
 
         if (!$this->isGranted('ROLE_ADMIN')) {
             // Restaurant users can only access their own restaurant's statistics
-            if (!$this->isGranted('ROLE_RESTAURANT') || $user->getRestaurant()?->getId() !== (int)$restaurantId) {
+            if (!$this->isGranted('ROLE_RESTAURANT') || $user->getOwnedRestaurant()?->getId() !== (int)$restaurantId) {
                 throw new AccessDeniedHttpException('You do not have permission to view these statistics');
             }
         }

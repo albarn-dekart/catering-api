@@ -47,7 +47,8 @@ class OrderRepository extends ServiceEntityRepository
                 ->setParameter('endDate', $endDate);
         }
 
-        return $qb->getQuery()->getSingleScalarResult();
+        $result = $qb->getQuery()->getSingleScalarResult();
+        return $result !== null ? (float) $result : 0.0;
     }
 
     /**
@@ -69,7 +70,8 @@ class OrderRepository extends ServiceEntityRepository
                 ->setParameter('endDate', $endDate);
         }
 
-        return $qb->getQuery()->getSingleScalarResult();
+        $result = $qb->getQuery()->getSingleScalarResult();
+        return $result !== null ? (float) $result : 0.0;
     }
 
     /**
@@ -119,7 +121,8 @@ class OrderRepository extends ServiceEntityRepository
                 ->setParameter('endDate', $endDate);
         }
 
-        return $qb->getQuery()->getSingleScalarResult();
+        $result = $qb->getQuery()->getSingleScalarResult();
+        return $result !== null ? (float) $result : 0.0;
     }
 
     /**

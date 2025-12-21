@@ -37,9 +37,9 @@ use App\Filter\MealSearchFilter;
     graphQlOperations: [
         new QueryCollection(security: "is_granted('PUBLIC_ACCESS')"),
         new Query(security: "is_granted('PUBLIC_ACCESS')"),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'create'),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'update'),
-        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant())", name: 'delete')
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user)", name: 'create'),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user)", name: 'update'),
+        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user)", name: 'delete')
     ],
 )]
 class Meal implements ImageUploadableInterface

@@ -49,7 +49,7 @@ class ExportController extends AbstractController
                 throw $this->createNotFoundException('Restaurant not found');
             }
 
-            if (!$this->isGranted('ROLE_ADMIN') && ($user->getRestaurant()?->getId() !== (int)$restaurantId)) {
+            if (!$this->isGranted('ROLE_ADMIN') && ($user->getOwnedRestaurant()?->getId() !== (int)$restaurantId)) {
                 throw $this->createAccessDeniedException('You do not have permission to export orders for this restaurant.');
             }
 
@@ -167,7 +167,7 @@ class ExportController extends AbstractController
             // CSV Data
             foreach ($users as $user) {
                 $roles = implode(', ', $user->getRoles());
-                $restaurant = $user->getRestaurant()?->getName() ?? 'N/A';
+                $restaurant = $user->getOwnedRestaurant()?->getName() ?? 'N/A';
 
                 fputcsv($handle, [
                     $user->getId(),
@@ -198,14 +198,14 @@ class ExportController extends AbstractController
         // Build the query based on user role and filters
         $qb = $this->deliveryRepository->createQueryBuilder('d')
             ->leftJoin('d.order', 'order')
-            ->leftJoin('d.restaurant', 'restaurant')
+            ->leftJoin('order.restaurant', 'restaurant')
             ->leftJoin('d.driver', 'driver')
             ->orderBy('d.deliveryDate', 'DESC');
 
         if ($this->isGranted('ROLE_RESTAURANT')) {
             // Restaurant owners see only their restaurant's deliveries
-            $qb->andWhere('d.restaurant = :restaurant')
-                ->setParameter('restaurant', $user->getRestaurant());
+            $qb->andWhere('order.restaurant = :restaurant')
+                ->setParameter('restaurant', $user->getOwnedRestaurant());
         }
 
         // Apply filters from request
@@ -244,7 +244,7 @@ class ExportController extends AbstractController
                 fputcsv($handle, [
                     $delivery->getId(),
                     $delivery->getOrder()?->getId() ?? 'N/A',
-                    $delivery->getRestaurant()?->getName() ?? 'N/A',
+                    $delivery->getOrder()?->getRestaurant()?->getName() ?? 'N/A',
                     $delivery->getDeliveryDate()->format('Y-m-d'),
                     $delivery->getStatus()->value,
                     $delivery->getDriver()?->getEmail() ?? 'Unassigned',
@@ -360,7 +360,7 @@ class ExportController extends AbstractController
 
         /** @var User|null $user */
         $user = $this->getUser();
-        if (!$this->isGranted('ROLE_ADMIN') && ($user->getRestaurant()?->getId() !== (int)$restaurantId)) {
+        if (!$this->isGranted('ROLE_ADMIN') && ($user->getOwnedRestaurant()?->getId() !== (int)$restaurantId)) {
             throw $this->createAccessDeniedException('You do not have permission to export statistics for this restaurant.');
         }
 
@@ -440,7 +440,7 @@ class ExportController extends AbstractController
 
         /** @var User|null $user */
         $user = $this->getUser();
-        if (!$this->isGranted('ROLE_ADMIN') && ($user->getRestaurant()?->getId() !== (int)$restaurantId)) {
+        if (!$this->isGranted('ROLE_ADMIN') && ($user->getOwnedRestaurant()?->getId() !== (int)$restaurantId)) {
             throw $this->createAccessDeniedException('You do not have permission to export production plan for this restaurant.');
         }
 

@@ -23,7 +23,8 @@ use App\Filter\DeliverySearchFilter;
 #[ApiFilter(DeliverySearchFilter::class)]
 #[ApiFilter(SearchFilter::class, properties: [
     'status' => 'exact',
-    'driver' => 'exact'
+    'driver' => 'exact',
+    'order.restaurant' => 'exact'
 ])]
 #[ApiFilter(OrderFilter::class, properties: ['deliveryDate', 'id'])]
 #[ApiResource(order: ['id' => 'DESC'])]
@@ -33,7 +34,7 @@ use App\Filter\DeliverySearchFilter;
     denormalizationContext: ['groups' => ['update']],
     graphQlOperations: [
         new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_DRIVER') or is_granted('ROLE_CUSTOMER')"),
-        new Query(security: "is_granted('ROLE_ADMIN') or object.getRestaurant() == user.getRestaurant() or object.getDriver() == user or object.getOrder().getCustomer() == user"),
+        new Query(security: "is_granted('ROLE_ADMIN') or object.getOrder().getRestaurant().getOwner() == user or object.getDriver() == user or object.getOrder().getCustomer() == user"),
         new Mutation(security: "is_granted('ROLE_ADMIN') or object.getDriver() == user or object.isOwnedByRestaurantOwner(user)", name: 'update'),
         new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
     ],
@@ -45,10 +46,7 @@ class Delivery
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(inversedBy: 'deliveries')]
-    #[ApiProperty(readableLink: true, writableLink: false)]
-    #[Groups(['read'])]
-    private ?Restaurant $restaurant = null;
+
 
     #[ORM\ManyToOne(inversedBy: 'deliveries')]
     #[ORM\JoinColumn(onDelete: 'SET NULL')]
@@ -167,17 +165,7 @@ class Delivery
         return $this;
     }
 
-    public function getRestaurant(): ?Restaurant
-    {
-        return $this->restaurant;
-    }
 
-    public function setRestaurant(?Restaurant $restaurant): static
-    {
-        $this->restaurant = $restaurant;
-
-        return $this;
-    }
 
     public function getOrder(): ?Order
     {

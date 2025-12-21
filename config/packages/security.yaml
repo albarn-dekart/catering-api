@@ -21,7 +21,9 @@ security:
     api:
       pattern: ^/api
       stateless: true
+      entry_point: jwt
       jwt: ~
+      refresh_jwt: ~
       
       # logout:
       #   path: /api/logout

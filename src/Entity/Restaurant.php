@@ -36,8 +36,8 @@ use App\Filter\RestaurantSearchFilter;
     graphQlOperations: [
         new QueryCollection(security: "is_granted('PUBLIC_ACCESS')"),
         new Query(security: "is_granted('PUBLIC_ACCESS')"),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and user.getRestaurant() == null)", name: 'create'),
-        new Mutation(security: "is_granted('ROLE_RESTAURANT') and object.getOwner() == user or is_granted('ROLE_ADMIN')", name: 'update'),
+        new Mutation(security: "is_granted('ROLE_ADMIN')", name: 'create'),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getOwner() == user)", name: 'update'),
         new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
     ],
 )]
@@ -64,7 +64,6 @@ class Restaurant implements ImageUploadableInterface
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $imagePath = null;
 
-    // 💡 Add description field for detailed read and write
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Groups(['read', 'create', 'update'])]
     private ?string $description = null;
@@ -116,14 +115,22 @@ class Restaurant implements ImageUploadableInterface
     private ?string $nip = null;
 
     /**
-     * Collection of users associated with this restaurant
-     * - Owner: User with ROLE_RESTAURANT
-     * - Drivers: Users with ROLE_DRIVER
+     * The restaurant owner (user with ROLE_RESTAURANT)
      */
-    #[ORM\OneToMany(targetEntity: User::class, mappedBy: 'restaurant', cascade: ['persist'])]
-    #[ApiProperty(readableLink: true)]
-    #[Groups(['read'])]
-    private Collection $users;
+    #[ORM\OneToOne(targetEntity: User::class, inversedBy: 'ownedRestaurant')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(readableLink: true, writableLink: false)]
+    #[Groups(['read', 'create', 'update'])]
+    private ?User $owner = null;
+
+    /**
+     * Drivers assigned to this restaurant
+     */
+    #[ORM\ManyToMany(targetEntity: User::class)]
+    #[ORM\JoinTable(name: 'restaurant_drivers')]
+    #[ApiProperty(readableLink: true, writableLink: false)]
+    #[Groups(['read', 'create', 'update'])]
+    private Collection $drivers;
 
     #[ORM\ManyToMany(targetEntity: RestaurantCategory::class, inversedBy: 'restaurants')]
     #[ApiProperty(readableLink: true, writableLink: false)]
@@ -131,22 +138,22 @@ class Restaurant implements ImageUploadableInterface
     private Collection $restaurantCategories;
 
     #[ORM\OneToMany(targetEntity: Meal::class, mappedBy: 'restaurant', orphanRemoval: true)]
-    #[ApiProperty(readableLink: true)]
+    #[ORM\OrderBy(['id' => 'DESC'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private Collection $meals;
 
     #[ORM\OneToMany(targetEntity: MealPlan::class, mappedBy: 'restaurant', orphanRemoval: true)]
-    #[ApiProperty(readableLink: true)]
+    #[ORM\OrderBy(['id' => 'DESC'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private Collection $mealPlans;
 
-    #[ORM\OneToMany(targetEntity: Delivery::class, mappedBy: 'restaurant', orphanRemoval: true)]
-    #[ApiProperty(readableLink: true)]
-    #[Groups(['read'])]
-    private Collection $deliveries;
+
 
     #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'restaurant', orphanRemoval: true)]
-    #[ApiProperty(readableLink: true)]
+    #[ORM\OrderBy(['id' => 'DESC'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private Collection $orders;
 
@@ -155,11 +162,11 @@ class Restaurant implements ImageUploadableInterface
 
     public function __construct()
     {
-        $this->users = new ArrayCollection();
+        $this->drivers = new ArrayCollection();
         $this->restaurantCategories = new ArrayCollection();
         $this->meals = new ArrayCollection();
         $this->mealPlans = new ArrayCollection();
-        $this->deliveries = new ArrayCollection();
+
         $this->orders = new ArrayCollection();
         $this->updatedAt = new DateTimeImmutable();
     }
@@ -313,62 +320,40 @@ class Restaurant implements ImageUploadableInterface
         return $this;
     }
 
+    public function getOwner(): ?User
+    {
+        return $this->owner;
+    }
+
+    public function setOwner(?User $owner): static
+    {
+        $this->owner = $owner;
+
+        return $this;
+    }
+
     /**
      * @return Collection<int, User>
      */
-    public function getUsers(): Collection
+    public function getDrivers(): Collection
     {
-        return $this->users;
+        return $this->drivers;
     }
 
-    public function addUser(User $user): static
+    public function addDriver(User $driver): static
     {
-        if (!$this->users->contains($user)) {
-            $this->users->add($user);
-            $user->setRestaurant($this);
+        if (!$this->drivers->contains($driver)) {
+            $this->drivers->add($driver);
         }
 
         return $this;
     }
 
-    public function removeUser(User $user): static
+    public function removeDriver(User $driver): static
     {
-        if ($this->users->removeElement($user)) {
-            // set the owning side to null (unless already changed)
-            if ($user->getRestaurant() === $this) {
-                $user->setRestaurant(null);
-            }
-        }
+        $this->drivers->removeElement($driver);
 
         return $this;
-    }
-
-    /**
-     * Helper method to get the restaurant owner (user with ROLE_RESTAURANT)
-     * For backward compatibility and convenience
-     */
-    public function getOwner(): ?User
-    {
-        foreach ($this->users as $user) {
-            if (in_array('ROLE_RESTAURANT', $user->getRoles(), true)) {
-                return $user;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Helper method to get all drivers assigned to this restaurant
-     */
-    public function getDrivers(): array
-    {
-        $drivers = [];
-        foreach ($this->users as $user) {
-            if (in_array('ROLE_DRIVER', $user->getRoles(), true)) {
-                $drivers[] = $user;
-            }
-        }
-        return $drivers;
     }
 
     /**
@@ -487,36 +472,6 @@ class Restaurant implements ImageUploadableInterface
             // set the owning side to null (unless already changed)
             if ($mealPlan->getRestaurant() === $this) {
                 $mealPlan->setRestaurant(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, Delivery>
-     */
-    public function getDeliveries(): Collection
-    {
-        return $this->deliveries;
-    }
-
-    public function addDelivery(Delivery $delivery): static
-    {
-        if (!$this->deliveries->contains($delivery)) {
-            $this->deliveries->add($delivery);
-            $delivery->setRestaurant($this);
-        }
-
-        return $this;
-    }
-
-    public function removeDelivery(Delivery $delivery): static
-    {
-        if ($this->deliveries->removeElement($delivery)) {
-            // set the owning side to null (unless already changed)
-            if ($delivery->getRestaurant() === $this) {
-                $delivery->setRestaurant(null);
             }
         }
 

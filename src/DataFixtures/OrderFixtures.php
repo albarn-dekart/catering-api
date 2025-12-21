@@ -99,7 +99,7 @@ class OrderFixtures extends Fixture implements DependentFixtureInterface
                 $orderItem = new OrderItem();
                 $orderItem->setMealPlan($mealPlan);
                 $orderItem->setQuantity($faker->numberBetween(1, 3));
-                $orderItem->setOrder($order);
+                $order->addOrderItem($orderItem);
 
                 $manager->persist($orderItem);
             }

@@ -29,13 +29,12 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
             $orderDate = $order->getCreatedAt() ? DateTimeImmutable::createFromMutable($order->getCreatedAt()) : new DateTimeImmutable();
 
             /** @var User[] $availableDrivers */
-            $availableDrivers = $restaurant->getDrivers();
+            $availableDrivers = $restaurant->getDrivers()->toArray();
             $numDeliveries = $faker->numberBetween(5, 12);
             $deliveryPeriodDaysStart = $faker->numberBetween(1, 7);
 
             for ($j = 0; $j < $numDeliveries; $j++) {
                 $delivery = new Delivery();
-                $delivery->setRestaurant($restaurant);
                 $deliveryDate = $orderDate->modify('+' . ($deliveryPeriodDaysStart + $j) . ' days');
                 $delivery->setDeliveryDate($deliveryDate);
                 // Assign a random driver
@@ -46,7 +45,7 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
                 // Determine status based on order status and date
                 $delivery->setStatus($this->getDeliveryStatus($order->getStatus(), $deliveryDate, $faker));
 
-                $delivery->setOrder($order);
+                $order->addDelivery($delivery);
                 $manager->persist($delivery);
             }
 

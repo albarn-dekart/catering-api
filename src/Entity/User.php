@@ -4,9 +4,9 @@ namespace App\Entity;
 
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\GraphQl\DeleteMutation;
-use ApiPlatform\Metadata\GraphQl\Mutation;
 use ApiPlatform\Metadata\GraphQl\Query;
+use ApiPlatform\Metadata\GraphQl\Mutation;
+use ApiPlatform\Metadata\GraphQl\DeleteMutation;
 use ApiPlatform\Metadata\GraphQl\QueryCollection;
 use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -18,7 +18,6 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use ApiPlatform\Metadata\ApiFilter;
-use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use App\Filter\UserSearchFilter;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
@@ -36,7 +35,7 @@ use App\Filter\UserSearchFilter;
             security: "is_granted('ROLE_ADMIN')",
             name: 'update'
         ),
-        new DeleteMutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant() == user.getRestaurant() and 'ROLE_DRIVER' in object.getRoles())", name: 'delete')
+        new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
     ],
 )]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
@@ -58,36 +57,38 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['read', 'create', 'update'])]
     private array $roles = [];
 
-    /**
-     * For ROLE_RESTAURANT: their owned restaurant
-     * For ROLE_DRIVER: the restaurant they work for
-     * Null for customers and admins
-     */
-    #[ORM\ManyToOne(targetEntity: Restaurant::class, inversedBy: 'users')]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    #[ApiProperty(readableLink: true, writableLink: false)]
-    #[Groups(['read', 'create', 'update'])]
-    private ?Restaurant $restaurant = null;
-
     #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'customer')]
-    #[ApiProperty(readableLink: true)]
+    #[ORM\OrderBy(['id' => 'DESC'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private Collection $orders;
 
     #[ORM\OneToMany(targetEntity: Delivery::class, mappedBy: 'driver')]
-    #[ApiProperty(readableLink: true)]
+    #[ORM\OrderBy(['id' => 'DESC'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private Collection $deliveries;
 
     #[ORM\OneToMany(targetEntity: Address::class, mappedBy: 'user', orphanRemoval: true)]
-    #[ApiProperty(readableLink: true)]
+    #[ORM\OrderBy(['id' => 'DESC'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private Collection $addresses;
 
     #[ORM\OneToMany(targetEntity: MealPlan::class, mappedBy: 'owner', orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'DESC'])]
+    #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private Collection $customMealPlans;
 
+    /**
+     * Restaurant owned by this user (for ROLE_RESTAURANT users)
+     * This is the inverse side of Restaurant::owner
+     */
+    #[ORM\OneToOne(targetEntity: Restaurant::class, mappedBy: 'owner')]
+    #[ApiProperty(readableLink: true)]
+    #[Groups(['read'])]
+    private ?Restaurant $ownedRestaurant = null;
 
     public function __construct()
     {
@@ -212,18 +213,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getRestaurant(): ?Restaurant
-    {
-        return $this->restaurant;
-    }
-
-    public function setRestaurant(?Restaurant $restaurant): static
-    {
-        $this->restaurant = $restaurant;
-
-        return $this;
-    }
-
     /**
      * @return Collection<int, Address>
      */
@@ -279,6 +268,32 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             if ($customMealPlan->getOwner() === $this) {
                 $customMealPlan->setOwner(null);
             }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get the restaurant owned by this user.
+     * This is a convenience method for restaurant owners (ROLE_RESTAURANT).
+     */
+    public function getOwnedRestaurant(): ?Restaurant
+    {
+        return $this->ownedRestaurant;
+    }
+
+    public function setOwnedRestaurant(?Restaurant $ownedRestaurant): static
+    {
+        // Unset the owning side of previous restaurant if exists
+        if ($this->ownedRestaurant !== null && $this->ownedRestaurant->getOwner() === $this) {
+            $this->ownedRestaurant->setOwner(null);
+        }
+
+        $this->ownedRestaurant = $ownedRestaurant;
+
+        // Set the owning side of the new restaurant
+        if ($ownedRestaurant !== null && $ownedRestaurant->getOwner() !== $this) {
+            $ownedRestaurant->setOwner($this);
         }
 
         return $this;

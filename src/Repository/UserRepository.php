@@ -24,16 +24,17 @@ class UserRepository extends ServiceEntityRepository
      */
     public function findDriversByRestaurant(int $restaurantId): array
     {
-        $users = $this->createQueryBuilder('u')
-            ->andWhere('u.restaurant = :restaurantId')
-            ->setParameter('restaurantId', $restaurantId)
-            ->getQuery()
-            ->getResult();
+        $restaurant = $this->getEntityManager()
+            ->getRepository(\App\Entity\Restaurant::class)
+            ->find($restaurantId);
 
-        // Filter in PHP to avoid database-specific JSON handling issues (PostgreSQL JSON vs Text)
-        return array_values(array_filter($users, function (User $user) {
+        if (!$restaurant) {
+            return [];
+        }
+
+        return $restaurant->getDrivers()->filter(function (User $user) {
             return in_array('ROLE_DRIVER', $user->getRoles());
-        }));
+        })->values();
     }
 
     /**

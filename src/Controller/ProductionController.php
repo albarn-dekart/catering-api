@@ -41,7 +41,7 @@ class ProductionController extends AbstractController
         $user = $this->getUser();
 
         if (!$this->isGranted('ROLE_ADMIN')) {
-            if (!$this->isGranted('ROLE_RESTAURANT') || $user->getRestaurant()?->getId() !== (int)$restaurantId) {
+            if (!$this->isGranted('ROLE_RESTAURANT') || $user->getOwnedRestaurant()?->getId() !== (int)$restaurantId) {
                 throw new AccessDeniedHttpException('You do not have permission to view this production plan');
             }
         }

@@ -40,7 +40,8 @@ class DeliveryRepository extends ServiceEntityRepository
             ->groupBy('d.status');
 
         if ($restaurant) {
-            $qb->where('d.restaurant = :restaurant')
+            $qb->join('d.order', 'o')
+                ->andWhere('o.restaurant = :restaurant')
                 ->setParameter('restaurant', $restaurant);
         }
 
@@ -71,8 +72,8 @@ class DeliveryRepository extends ServiceEntityRepository
     public function getProductionPlan(Restaurant $restaurant, \DateTimeInterface $date): array
     {
         // Set time range for the entire day (00:00:00 to 23:59:59)
-        $startDate = (clone $date)->setTime(0, 0, 0);
-        $endDate = (clone $date)->setTime(23, 59, 59);
+        $startDate = \DateTime::createFromInterface($date)->setTime(0, 0, 0);
+        $endDate = \DateTime::createFromInterface($date)->setTime(23, 59, 59);
 
         // Query to sum up quantities of meal plans for deliveries scheduled on this date
         // We join Delivery -> Order -> OrderItems -> MealPlan
@@ -81,7 +82,7 @@ class DeliveryRepository extends ServiceEntityRepository
             ->join('d.order', 'o')
             ->join('o.orderItems', 'oi')
             ->join('oi.mealPlan', 'mp')
-            ->where('d.restaurant = :restaurant')
+            ->where('o.restaurant = :restaurant')
             ->andWhere('d.deliveryDate >= :startDate')
             ->andWhere('d.deliveryDate <= :endDate')
             // Exclude cancelled orders
@@ -127,7 +128,8 @@ class DeliveryRepository extends ServiceEntityRepository
         }
 
         if ($restaurant) {
-            $qb->andWhere('d.restaurant = :restaurant')
+            $qb->join('d.order', 'ord')
+                ->andWhere('ord.restaurant = :restaurant')
                 ->setParameter('restaurant', $restaurant);
         }
 
@@ -154,7 +156,8 @@ class DeliveryRepository extends ServiceEntityRepository
         }
 
         if ($restaurant) {
-            $deliveredQb->andWhere('d.restaurant = :restaurant')
+            $deliveredQb->join('d.order', 'ord')
+                ->andWhere('ord.restaurant = :restaurant')
                 ->setParameter('restaurant', $restaurant);
         }
 

@@ -7,6 +7,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
@@ -53,8 +54,8 @@ class ImageUploadController extends AbstractController
         $entity->setImageFile($uploadedFile);
         $entityManager->flush();
 
-        $context = $serializationGroup ? ['groups' => $serializationGroup] : [];
-
-        return $this->json($entity, context: $context);
+        return $this->json([
+            'imageUrl' => $entity->getImageUrl(),
+        ]);
     }
 }
