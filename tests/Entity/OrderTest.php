@@ -6,7 +6,10 @@ use App\Entity\Delivery;
 use App\Entity\MealPlan;
 use App\Entity\Order;
 use App\Entity\OrderItem;
+use App\Entity\Restaurant;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface;
 
 class OrderTest extends TestCase
 {
@@ -51,7 +54,7 @@ class OrderTest extends TestCase
     public function testCalculateTotalWithDeliveryFee()
     {
         // 1. Setup Restaurant with Delivery Price 15.00 PLN (1500)
-        $restaurant = new \App\Entity\Restaurant();
+        $restaurant = new Restaurant();
         $restaurant->setDeliveryPrice(1500);
 
         // 2. Setup Order linked to Restaurant
@@ -87,10 +90,10 @@ class OrderTest extends TestCase
         $order = new Order();
 
         // Mock Restaurant 1
-        $restaurant1 = $this->createMock(\App\Entity\Restaurant::class);
+        $restaurant1 = $this->createMock(Restaurant::class);
 
         // Mock Restaurant 2
-        $restaurant2 = $this->createMock(\App\Entity\Restaurant::class);
+        $restaurant2 = $this->createMock(Restaurant::class);
 
         // MealPlan from Rest 1
         $mealPlan1 = new MealPlan();
@@ -111,10 +114,10 @@ class OrderTest extends TestCase
         $order->addOrderItem($item2);
 
         // Mock ExecutionContext
-        $context = $this->createMock(\Symfony\Component\Validator\Context\ExecutionContextInterface::class);
+        $context = $this->createMock(ExecutionContextInterface::class);
 
         // Expect violation builder to be called
-        $violationBuilder = $this->createMock(\Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface::class);
+        $violationBuilder = $this->createMock(ConstraintViolationBuilderInterface::class);
         $violationBuilder->method('atPath')->willReturnSelf();
         $violationBuilder->method('addViolation')->willReturnSelf();
 

@@ -45,10 +45,12 @@ class DeliveryRepository extends ServiceEntityRepository
                 ->setParameter('restaurant', $restaurant);
         }
 
-        if ($startDate && $endDate) {
+        if ($startDate) {
             $qb->andWhere('d.deliveryDate >= :startDate')
-                ->andWhere('d.deliveryDate <= :endDate')
-                ->setParameter('startDate', $startDate)
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('d.deliveryDate <= :endDate')
                 ->setParameter('endDate', $endDate);
         }
 
@@ -122,9 +124,9 @@ class DeliveryRepository extends ServiceEntityRepository
                 ->setParameter('startDate', $startDate)
                 ->setParameter('endDate', $endDate);
         } else {
-            $today = new \DateTimeImmutable('today');
-            $qb->andWhere('d.deliveryDate <= :today')
-                ->setParameter('today', $today);
+            $now = new \DateTimeImmutable('now');
+            $qb->andWhere('d.deliveryDate <= :now')
+                ->setParameter('now', $now);
         }
 
         if ($restaurant) {
@@ -144,15 +146,19 @@ class DeliveryRepository extends ServiceEntityRepository
             ->where('d.status = :deliveredStatus')
             ->setParameter('deliveredStatus', DeliveryStatus::Delivered);
 
-        if ($startDate && $endDate) {
+        if ($startDate) {
             $deliveredQb->andWhere('d.deliveryDate >= :startDate')
-                ->andWhere('d.deliveryDate <= :endDate')
-                ->setParameter('startDate', $startDate)
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $deliveredQb->andWhere('d.deliveryDate <= :endDate')
                 ->setParameter('endDate', $endDate);
-        } else {
-            $today = new \DateTimeImmutable('today');
-            $deliveredQb->andWhere('d.deliveryDate <= :today')
-                ->setParameter('today', $today);
+        }
+        // If neither startDate nor endDate is provided, filter by deliveries up to now
+        if (!$startDate && !$endDate) {
+            $now = new \DateTimeImmutable('now');
+            $deliveredQb->andWhere('d.deliveryDate <= :now')
+                ->setParameter('now', $now);
         }
 
         if ($restaurant) {

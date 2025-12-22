@@ -37,10 +37,12 @@ class MealPlanRepository extends ServiceEntityRepository
                 ->setParameter('restaurant', $restaurant);
         }
 
-        if ($startDate && $endDate) {
+        if ($startDate) {
             $qb->andWhere('o.createdAt >= :startDate')
-                ->andWhere('o.createdAt <= :endDate')
-                ->setParameter('startDate', $startDate)
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('o.createdAt <= :endDate')
                 ->setParameter('endDate', $endDate);
         }
 

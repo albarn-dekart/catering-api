@@ -47,7 +47,7 @@ class ProductionController extends AbstractController
         }
 
         $dateStr = $request->query->get('date');
-        $date = $dateStr ? new DateTime($dateStr) : new DateTime('tomorrow'); // Default to tomorrow for kitchen planning
+        $date = $dateStr ? new DateTime($dateStr) : new DateTime('today'); // Default to today to show current delivery needs
 
         $productionPlan = $this->deliveryRepository->getProductionPlan($restaurant, $date);
 

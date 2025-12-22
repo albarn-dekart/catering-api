@@ -30,7 +30,7 @@ class HomeController extends AbstractController
             return $item;
         }, $popularMealPlansData);
 
-        // Get featured restaurants (top 6 by order count)
+        // Get featured restaurants (top 8 by order count)
         $featuredRestaurantsData = $this->restaurantRepository->getFeaturedRestaurants(6);
 
         // Transform imagePath to imageUrl for restaurants

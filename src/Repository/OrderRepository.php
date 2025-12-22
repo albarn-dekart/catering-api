@@ -40,10 +40,12 @@ class OrderRepository extends ServiceEntityRepository
             ->where('o.status NOT IN (:excludedStatuses)')
             ->setParameter('excludedStatuses', [OrderStatus::Unpaid, OrderStatus::Cancelled]);
 
-        if ($startDate && $endDate) {
+        if ($startDate) {
             $qb->andWhere('o.createdAt >= :startDate')
-                ->andWhere('o.createdAt <= :endDate')
-                ->setParameter('startDate', $startDate)
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('o.createdAt <= :endDate')
                 ->setParameter('endDate', $endDate);
         }
 
@@ -63,10 +65,12 @@ class OrderRepository extends ServiceEntityRepository
             ->setParameter('restaurant', $restaurant)
             ->setParameter('excludedStatuses', [OrderStatus::Unpaid, OrderStatus::Cancelled]);
 
-        if ($startDate && $endDate) {
+        if ($startDate) {
             $qb->andWhere('o.createdAt >= :startDate')
-                ->andWhere('o.createdAt <= :endDate')
-                ->setParameter('startDate', $startDate)
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('o.createdAt <= :endDate')
                 ->setParameter('endDate', $endDate);
         }
 
@@ -84,10 +88,12 @@ class OrderRepository extends ServiceEntityRepository
             ->select('o.status as status, COUNT(o.id) as count')
             ->groupBy('o.status');
 
-        if ($startDate && $endDate) {
+        if ($startDate) {
             $qb->andWhere('o.createdAt >= :startDate')
-                ->andWhere('o.createdAt <= :endDate')
-                ->setParameter('startDate', $startDate)
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('o.createdAt <= :endDate')
                 ->setParameter('endDate', $endDate);
         }
 
@@ -114,10 +120,12 @@ class OrderRepository extends ServiceEntityRepository
             ->where('o.status NOT IN (:excludedStatuses)')
             ->setParameter('excludedStatuses', [OrderStatus::Unpaid, OrderStatus::Cancelled]);
 
-        if ($startDate && $endDate) {
+        if ($startDate) {
             $qb->andWhere('o.createdAt >= :startDate')
-                ->andWhere('o.createdAt <= :endDate')
-                ->setParameter('startDate', $startDate)
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('o.createdAt <= :endDate')
                 ->setParameter('endDate', $endDate);
         }
 
@@ -133,8 +141,8 @@ class OrderRepository extends ServiceEntityRepository
     {
         $result = $this->createQueryBuilder('o')
             ->select('COUNT(o.id)')
-            ->where('o.id >= :start')
-            ->andWhere('o.id <= :end')
+            ->where('o.createdAt >= :start')
+            ->andWhere('o.createdAt <= :end')
             ->setParameter('start', $start)
             ->setParameter('end', $end)
             ->getQuery()
@@ -177,10 +185,12 @@ class OrderRepository extends ServiceEntityRepository
             ->where('o.restaurant = :restaurant')
             ->setParameter('restaurant', $restaurant);
 
-        if ($startDate && $endDate) {
+        if ($startDate) {
             $qb->andWhere('o.createdAt >= :startDate')
-                ->andWhere('o.createdAt <= :endDate')
-                ->setParameter('startDate', $startDate)
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('o.createdAt <= :endDate')
                 ->setParameter('endDate', $endDate);
         }
 
@@ -201,10 +211,12 @@ class OrderRepository extends ServiceEntityRepository
             ->setParameter('restaurant', $restaurant)
             ->setParameter('activeStatuses', [OrderStatus::Paid, OrderStatus::Active]);
 
-        if ($startDate && $endDate) {
+        if ($startDate) {
             $qb->andWhere('o.createdAt >= :startDate')
-                ->andWhere('o.createdAt <= :endDate')
-                ->setParameter('startDate', $startDate)
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('o.createdAt <= :endDate')
                 ->setParameter('endDate', $endDate);
         }
 
@@ -223,7 +235,7 @@ class OrderRepository extends ServiceEntityRepository
             $start = \DateTime::createFromInterface($startDate);
             $end = \DateTime::createFromInterface($endDate);
         } else {
-            $end = new DateTime('today');
+            $end = new DateTime('now');
             $start = (new DateTime('today'))->modify("-$days days");
         }
 
@@ -298,7 +310,7 @@ class OrderRepository extends ServiceEntityRepository
             $start = \DateTime::createFromInterface($startDate);
             $end = \DateTime::createFromInterface($endDate);
         } else {
-            $end = new DateTime('today');
+            $end = new DateTime('now');
             $start = (new DateTime('today'))->modify("-$days days");
         }
 

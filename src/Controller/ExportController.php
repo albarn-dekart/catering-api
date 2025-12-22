@@ -197,14 +197,14 @@ class ExportController extends AbstractController
 
         // Build the query based on user role and filters
         $qb = $this->deliveryRepository->createQueryBuilder('d')
-            ->leftJoin('d.order', 'order')
-            ->leftJoin('order.restaurant', 'restaurant')
+            ->leftJoin('d.order', 'o')
+            ->leftJoin('o.restaurant', 'restaurant')
             ->leftJoin('d.driver', 'driver')
             ->orderBy('d.deliveryDate', 'DESC');
 
         if ($this->isGranted('ROLE_RESTAURANT')) {
             // Restaurant owners see only their restaurant's deliveries
-            $qb->andWhere('order.restaurant = :restaurant')
+            $qb->andWhere('o.restaurant = :restaurant')
                 ->setParameter('restaurant', $user->getOwnedRestaurant());
         }
 
@@ -270,11 +270,19 @@ class ExportController extends AbstractController
     public function exportStatistics(Request $request): Response
     {
         $data = json_decode($request->getContent(), true) ?? [];
-        $startDate = !empty($data['startDate']) ? new DateTime($data['startDate']) : null;
-        $endDate = !empty($data['endDate']) ? new DateTime($data['endDate']) : null;
+        if (!empty($data['startDate'])) {
+            $startDate = new DateTime($data['startDate']);
+            $startDate->setTime(0, 0, 0);
+        } else {
+            $startDate = (new DateTime('today'))->modify('-30 days');
+        }
 
-        $startDate?->setTime(0, 0);
-        $endDate?->setTime(23, 59, 59);
+        if (!empty($data['endDate'])) {
+            $endDate = new DateTime($data['endDate']);
+            $endDate->setTime(23, 59, 59);
+        } else {
+            $endDate = new DateTime('now');
+        }
 
         // Get statistics using repository methods
         $totalRevenue = $this->orderRepository->getTotalRevenue($startDate, $endDate);
@@ -365,11 +373,19 @@ class ExportController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true) ?? [];
-        $startDate = !empty($data['startDate']) ? new DateTime($data['startDate']) : null;
-        $endDate = !empty($data['endDate']) ? new DateTime($data['endDate']) : null;
+        if (!empty($data['startDate'])) {
+            $startDate = new DateTime($data['startDate']);
+            $startDate->setTime(0, 0, 0);
+        } else {
+            $startDate = (new DateTime('today'))->modify('-30 days');
+        }
 
-        $startDate?->setTime(0, 0);
-        $endDate?->setTime(23, 59, 59);
+        if (!empty($data['endDate'])) {
+            $endDate = new DateTime($data['endDate']);
+            $endDate->setTime(23, 59, 59);
+        } else {
+            $endDate = new DateTime('now');
+        }
 
         // Get restaurant-specific statistics
         $totalRevenue = $this->orderRepository->getTotalRevenueByRestaurant($restaurant, $startDate, $endDate);
@@ -445,7 +461,7 @@ class ExportController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true) ?? [];
-        $dateStr = $data['date'] ?? 'tomorrow';
+        $dateStr = $data['date'] ?? 'today';
         $date = new DateTime($dateStr);
 
         $productionPlan = $this->deliveryRepository->getProductionPlan($restaurant, $date);

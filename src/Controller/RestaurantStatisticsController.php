@@ -54,15 +54,18 @@ class RestaurantStatisticsController extends AbstractController
         $startDateStr = $request->query->get('startDate');
         $endDateStr = $request->query->get('endDate');
 
-        $startDate = $startDateStr ? new \DateTime($startDateStr) : null;
-        $endDate = $endDateStr ? new \DateTime($endDateStr) : null;
-
-        // Set times to cover full days
-        if ($startDate) {
+        if ($startDateStr) {
+            $startDate = new \DateTime($startDateStr);
             $startDate->setTime(0, 0, 0);
+        } else {
+            $startDate = (new \DateTime('today'))->modify('-30 days');
         }
-        if ($endDate) {
+
+        if ($endDateStr) {
+            $endDate = new \DateTime($endDateStr);
             $endDate->setTime(23, 59, 59);
+        } else {
+            $endDate = new \DateTime('now');
         }
 
         // Get restaurant-specific statistics
