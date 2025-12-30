@@ -14,12 +14,14 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\Selectable;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\HttpFoundation\File\File;
-use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
-use Vich\UploaderBundle\Mapping\Annotation as Vich;
+use Vich\UploaderBundle\Mapping\Attribute as Vich;
+use Doctrine\Common\Collections\Criteria;
 
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
@@ -143,6 +145,9 @@ class Restaurant implements ImageUploadableInterface
     #[Groups(['read'])]
     private Collection $meals;
 
+    /**
+     * @var Collection<int, MealPlan>&Selectable<int, MealPlan>
+     */
     #[ORM\OneToMany(targetEntity: MealPlan::class, mappedBy: 'restaurant', orphanRemoval: true)]
     #[ORM\OrderBy(['id' => 'DESC'])]
     #[ApiProperty(readableLink: true, writableLink: false)]
@@ -453,9 +458,13 @@ class Restaurant implements ImageUploadableInterface
      */
     public function getMealPlans(): Collection
     {
-        return $this->mealPlans;
+        /** @var Selectable&Collection $mealPlans */
+        $mealPlans = $this->mealPlans;
+        $criteria = Criteria::create()
+            ->where(Criteria::expr()->isNull('owner'))
+            ->orderBy(['id' => 'DESC']);
+        return $mealPlans->matching($criteria);
     }
-
     public function addMealPlan(MealPlan $mealPlan): static
     {
         if (!$this->mealPlans->contains($mealPlan)) {

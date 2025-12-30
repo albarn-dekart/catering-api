@@ -11,7 +11,7 @@ use ApiPlatform\Metadata\GraphQl\QueryCollection;
 use App\Repository\AddressRepository;
 use App\State\AddressProcessor;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AddressRepository::class)]
@@ -48,7 +48,7 @@ class Address
     private ?int $id = null;
 
     #[ORM\ManyToOne(inversedBy: 'addresses')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['create'])]
     private ?User $user = null;

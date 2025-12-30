@@ -48,7 +48,7 @@ class MealPlanFixtures extends Fixture implements DependentFixtureInterface
                 'desc' => 'Podróż po smakach Tajlandii, Japonii i Chin',
                 'meals' => ['asian_meal_0', 'asian_meal_1', 'asian_meal_4', 'asian_meal_5', 'asian_meal_6'],
                 'categories' => [DietCategoryFixtures::LOW_CARB],
-                'image' => 'lunch.webp',
+                'image' => 'azja_tydzien.webp',
             ],
             [
                 'name' => 'Sushi i Zupy',

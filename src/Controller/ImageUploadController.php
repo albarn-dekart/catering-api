@@ -16,7 +16,7 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use App\Entity\Meal;
 use App\Entity\MealPlan;
 use App\Entity\Restaurant;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 #[AsController]
 class ImageUploadController extends AbstractController

@@ -15,34 +15,34 @@ class MealPlanExtension implements QueryCollectionExtensionInterface
     public function __construct(private Security $security) {}
 
     public function applyToCollection(
-        QueryBuilder $queryBuilder,
+        QueryBuilder                $queryBuilder,
         QueryNameGeneratorInterface $queryNameGenerator,
-        string $resourceClass,
-        ?Operation $operation = null,
-        array $context = []
+        string                      $resourceClass,
+        ?Operation                  $operation = null,
+        array                       $context = []
     ): void {
         if (MealPlan::class !== $resourceClass) {
             return;
         }
 
-        $user = $this->security->getUser();
+        $rootAlias = $queryBuilder->getRootAliases()[0];
+        $dql = $queryBuilder->getDQL();
 
-        // If admin, show everything
-        if ($user instanceof User && in_array('ROLE_ADMIN', $user->getRoles())) {
+        // 1. If we are explicitly querying for an owner's plans (e.g., GetMyCustomMealPlans)
+        // API Platform/Doctrine adds a filter like "mp.owner = :id" or joins it.
+        if (str_contains($dql, "$rootAlias.owner")) {
             return;
         }
 
-        $rootAlias = $queryBuilder->getRootAliases()[0];
-
-        // Default: Show where owner is NULL (Public)
-        $whereOr = "$rootAlias.owner IS NULL";
-
-        // If user logged in, also show their own plans
-        if ($user instanceof User) {
-            $whereOr .= " OR $rootAlias.owner = :current_user";
-            $queryBuilder->setParameter('current_user', $user);
+        // 2. If we are in a Restaurant context (e.g., Restaurant Menu / GetMealPlansByRestaurant)
+        // API Platform adds a filter like "mp.restaurant = :id" or joins it.
+        if (str_contains($dql, "$rootAlias.restaurant")) {
+            $queryBuilder->andWhere("$rootAlias.owner IS NULL");
+            return;
         }
 
-        $queryBuilder->andWhere($whereOr);
+        // 3. Default behavior (Global Search / Others): Show ONLY official plans.
+        // Custom meal plans are only visible when explicitly requested via the user's collection (Step 1).
+        $queryBuilder->andWhere("$rootAlias.owner IS NULL");
     }
 }

@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Attribute\AsController;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[AsController]
@@ -212,6 +212,16 @@ class ExportController extends AbstractController
         if (!empty($data['status'])) {
             $qb->andWhere('d.status = :status')
                 ->setParameter('status', $data['status']);
+        }
+
+        if (!empty($data['startDate'])) {
+            $qb->andWhere('d.deliveryDate >= :startDate')
+                ->setParameter('startDate', new DateTime($data['startDate']));
+        }
+
+        if (!empty($data['endDate'])) {
+            $qb->andWhere('d.deliveryDate <= :endDate')
+                ->setParameter('endDate', new DateTime($data['endDate']));
         }
 
         $deliveries = $qb->getQuery()->getResult();
@@ -475,7 +485,7 @@ class ExportController extends AbstractController
             fputcsv($handle, ['Restaurant', $restaurant->getName()]);
             fputcsv($handle, ['Production Date', $date->format('Y-m-d')]);
             fputcsv($handle, []);
-            fputcsv($handle, ['Meal Plan', 'Quantity to Cook']);
+            fputcsv($handle, ['Meal Name', 'Quantity to Cook']);
 
             // Data
             foreach ($productionPlan as $item) {

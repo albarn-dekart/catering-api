@@ -83,8 +83,23 @@ class OrderFixtures extends Fixture implements DependentFixtureInterface
             $restaurant = $this->getReference($restaurantRef, Restaurant::class);
             $order->setRestaurant($restaurant);
 
+            // Set created date - favor more recent orders for better visibility of active data
+            if ($i < 20) {
+                // 20 orders created in the last 3 days
+                $daysAgo = $faker->numberBetween(0, 3);
+            } elseif ($i < 50) {
+                // 30 orders created in the last 14 days
+                $daysAgo = $faker->numberBetween(4, 14);
+            } else {
+                // 30 orders spread over the last 90 days
+                $daysAgo = $faker->numberBetween(15, 90);
+            }
+
+            $createdAt = (new DateTime())->modify("-$daysAgo days");
+            $order->setCreatedAt($createdAt);
+
             // Assign a random status (Weighted distribution for realism)
-            $status = $this->getWeightedStatus($faker);
+            $status = $this->getWeightedStatus($faker, $createdAt);
             $order->setStatus($status);
 
             // Add 1-3 order items (meal plans)
@@ -104,11 +119,6 @@ class OrderFixtures extends Fixture implements DependentFixtureInterface
                 $manager->persist($orderItem);
             }
 
-            // Set created date - distribute orders over the past 90 days
-            $daysAgo = $faker->numberBetween(0, 90);
-            $createdAt = (new DateTime())->modify("-$daysAgo days");
-            $order->setCreatedAt($createdAt);
-
             $manager->persist($order);
             $this->addReference("order_$i", $order);
         }
@@ -116,23 +126,29 @@ class OrderFixtures extends Fixture implements DependentFixtureInterface
         $manager->flush();
     }
 
-    /**
-     * FIX: Changed type hint from Faker\Factory to Faker\Generator
-     */
-    private function getWeightedStatus(Generator $faker): OrderStatus
+    private function getWeightedStatus(Generator $faker, DateTime $createdAt): OrderStatus
     {
+        $daysAgo = (new DateTime())->diff($createdAt)->days;
         $rand = $faker->numberBetween(1, 100);
 
-        if ($rand <= 50) {
-            return OrderStatus::Completed; // 50% completed
-        } elseif ($rand <= 80) {
-            return OrderStatus::Active; // 30% active
-        } elseif ($rand <= 90) {
-            return OrderStatus::Paid; // 10% paid, awaiting processing
-        } elseif ($rand <= 95) {
-            return OrderStatus::Unpaid; // 5% unpaid
+        if ($daysAgo < 2) {
+            // Very recent: mostly Paid or Unpaid
+            if ($rand <= 40) return OrderStatus::Paid;
+            if ($rand <= 70) return OrderStatus::Unpaid;
+            if ($rand <= 95) return OrderStatus::Active;
+            return OrderStatus::Cancelled;
+        } elseif ($daysAgo < 14) {
+            // Recent: mostly Active
+            if ($rand <= 70) return OrderStatus::Active;
+            if ($rand <= 85) return OrderStatus::Completed;
+            if ($rand <= 95) return OrderStatus::Paid;
+            return OrderStatus::Cancelled;
         } else {
-            return OrderStatus::Cancelled; // 5% cancelled
+            // Older: mostly Completed
+            if ($rand <= 80) return OrderStatus::Completed;
+            if ($rand <= 90) return OrderStatus::Active;
+            if ($rand <= 95) return OrderStatus::Cancelled;
+            return OrderStatus::Paid;
         }
     }
 

@@ -31,7 +31,21 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
             /** @var User[] $availableDrivers */
             $availableDrivers = $restaurant->getDrivers()->toArray();
             $numDeliveries = $faker->numberBetween(5, 12);
-            $deliveryPeriodDaysStart = $faker->numberBetween(1, 7);
+
+            $daysAgo = (new \DateTime())->diff($order->getCreatedAt())->days;
+
+            if ($order->getStatus() === OrderStatus::Active) {
+                // For Active orders, start delivery such that it overlaps with 'today'
+                // Latest delivery date is $orderDate + $start + $numDeliveries - 1
+                // We want: $orderDate + $start + $numDeliveries - 1 >= today
+                // Which means: $start + $numDeliveries - 1 >= $daysAgo
+                // $start >= $daysAgo - $numDeliveries + 1
+                $minStart = max(0, $daysAgo - $numDeliveries + 1);
+                $maxStart = max($minStart, min(5, $daysAgo));
+                $deliveryPeriodDaysStart = $faker->numberBetween($minStart, $maxStart);
+            } else {
+                $deliveryPeriodDaysStart = $faker->numberBetween(1, 7);
+            }
 
             for ($j = 0; $j < $numDeliveries; $j++) {
                 $delivery = new Delivery();

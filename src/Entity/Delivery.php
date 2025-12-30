@@ -12,14 +12,16 @@ use App\Enum\DeliveryStatus;
 use App\Enum\OrderStatus;
 use App\Repository\DeliveryRepository;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
 use App\Filter\DeliverySearchFilter;
 
 #[ORM\Entity(repositoryClass: DeliveryRepository::class)]
+#[ApiFilter(DateFilter::class, properties: ['deliveryDate'])]
 #[ApiFilter(DeliverySearchFilter::class)]
 #[ApiFilter(SearchFilter::class, properties: [
     'status' => 'exact',
@@ -66,7 +68,7 @@ class Delivery
     private ?\DateTimeInterface $deliveryDate = null;
 
     #[ORM\ManyToOne(inversedBy: 'deliveries')]
-    #[ORM\JoinColumn(nullable: true)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private ?Order $order = null;

@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[AsController]
@@ -95,16 +95,30 @@ class RestaurantStatisticsController extends AbstractController
         // Get daily orders time series
         $dailyOrdersTimeSeries = $this->orderRepository->getDailyOrdersTimeSeries(30, $restaurant, $startDate, $endDate);
 
+        // Get average order value
+        $averageOrderValue = $this->orderRepository->getAverageOrderValueByRestaurant($restaurant, $startDate, $endDate);
+
+        // Get all-time statistics
+        $totalClients = $this->orderRepository->getTotalClientsForRestaurant($restaurant);
+        $totalMealPlans = $this->mealPlanRepository->count(['restaurant' => $restaurant]);
+
+        // Get orders by status
+        $ordersByStatus = $this->orderRepository->getOrderCountByStatus($startDate, $endDate, $restaurant);
+
         return $this->json([
             'totalRevenue' => $totalRevenue,
             'totalOrders' => $totalOrders,
             'activeOrders' => $activeOrders,
+            'averageOrderValue' => $averageOrderValue,
             'completedOrders' => $completedOrders,
             'totalDeliveries' => $totalDeliveries,
             'deliverySuccessRate' => $deliverySuccessRate,
             'popularMealPlans' => $popularMealPlans,
             'revenueTimeSeries' => $revenueTimeSeries,
             'dailyOrdersTimeSeries' => $dailyOrdersTimeSeries,
+            'totalClients' => $totalClients,
+            'totalMealPlans' => $totalMealPlans,
+            'ordersByStatus' => $ordersByStatus,
         ]);
     }
 }

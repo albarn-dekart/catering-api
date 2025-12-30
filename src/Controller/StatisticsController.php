@@ -10,7 +10,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\AsController;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[AsController]
@@ -76,6 +76,9 @@ class StatisticsController extends AbstractController
         // Get orders by status for pie chart (Same as $orderCountsByStatus but maybe variable naming)
         $ordersByStatus = $orderCountsByStatus;
 
+        // Get top performing restaurants
+        $topRestaurants = $this->orderRepository->getTopRestaurantsByRevenue(5, $startDate, $endDate);
+
         return $this->json([
             'totalRevenue' => $totalRevenue,
             'totalOrders' => $totalOrders,
@@ -89,6 +92,7 @@ class StatisticsController extends AbstractController
             'revenueTimeSeries' => $revenueTimeSeries,
             'dailyOrdersTimeSeries' => $dailyOrdersTimeSeries,
             'ordersByStatus' => $ordersByStatus,
+            'topRestaurants' => $topRestaurants,
         ]);
     }
 }

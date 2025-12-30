@@ -82,7 +82,7 @@ class OrderRepository extends ServiceEntityRepository
      * Get the count of orders grouped by status
      * Returns associative array like ['Paid' => 10, 'Active' => 5, ...]
      */
-    public function getOrderCountByStatus(?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): array
+    public function getOrderCountByStatus(?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null, ?Restaurant $restaurant = null): array
     {
         $qb = $this->createQueryBuilder('o')
             ->select('o.status as status, COUNT(o.id) as count')
@@ -95,6 +95,11 @@ class OrderRepository extends ServiceEntityRepository
         if ($endDate) {
             $qb->andWhere('o.createdAt <= :endDate')
                 ->setParameter('endDate', $endDate);
+        }
+
+        if ($restaurant) {
+            $qb->andWhere('o.restaurant = :restaurant')
+                ->setParameter('restaurant', $restaurant);
         }
 
         $results = $qb->getQuery()->getResult();
@@ -195,6 +200,73 @@ class OrderRepository extends ServiceEntityRepository
         }
 
         $result = $qb->getQuery()->getSingleScalarResult();
+
+        return $result ? (int) $result : 0;
+    }
+
+    /**
+     * Get the average order value for a specific restaurant (excluding unpaid orders)
+     */
+    public function getAverageOrderValueByRestaurant(Restaurant $restaurant, ?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): float
+    {
+        $qb = $this->createQueryBuilder('o')
+            ->select('AVG(o.total)')
+            ->where('o.restaurant = :restaurant')
+            ->andWhere('o.status NOT IN (:excludedStatuses)')
+            ->setParameter('restaurant', $restaurant)
+            ->setParameter('excludedStatuses', [OrderStatus::Unpaid, OrderStatus::Cancelled]);
+
+        if ($startDate) {
+            $qb->andWhere('o.createdAt >= :startDate')
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('o.createdAt <= :endDate')
+                ->setParameter('endDate', $endDate);
+        }
+
+        $result = $qb->getQuery()->getSingleScalarResult();
+        return $result !== null ? (float) $result : 0.0;
+    }
+
+    /**
+     * Get top performing restaurants by revenue
+     * Returns array of ['name' => 'Pizza Place', 'revenue' => 1234.56, 'orderCount' => 50]
+     */
+    public function getTopRestaurantsByRevenue(int $limit = 5, ?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): array
+    {
+        $qb = $this->createQueryBuilder('o')
+            ->select('r.name as name, SUM(o.total) as revenue, COUNT(o.id) as orderCount')
+            ->join('o.restaurant', 'r')
+            ->where('o.status NOT IN (:excludedStatuses)')
+            ->setParameter('excludedStatuses', [OrderStatus::Unpaid, OrderStatus::Cancelled])
+            ->groupBy('r.id')
+            ->orderBy('revenue', 'DESC')
+            ->setMaxResults($limit);
+
+        if ($startDate) {
+            $qb->andWhere('o.createdAt >= :startDate')
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('o.createdAt <= :endDate')
+                ->setParameter('endDate', $endDate);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Get the count of unique customers who ordered from a specific restaurant
+     */
+    public function getTotalClientsForRestaurant(Restaurant $restaurant): int
+    {
+        $result = $this->createQueryBuilder('o')
+            ->select('COUNT(DISTINCT o.customer)')
+            ->where('o.restaurant = :restaurant')
+            ->setParameter('restaurant', $restaurant)
+            ->getQuery()
+            ->getSingleScalarResult();
 
         return $result ? (int) $result : 0;
     }

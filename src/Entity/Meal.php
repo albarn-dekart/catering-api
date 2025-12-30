@@ -17,9 +17,9 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\HttpFoundation\File\File;
-use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
-use Vich\UploaderBundle\Mapping\Annotation as Vich;
+use Vich\UploaderBundle\Mapping\Attribute as Vich;
 
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Doctrine\Orm\Filter\RangeFilter; // Added RangeFilter
@@ -80,7 +80,7 @@ class Meal implements ImageUploadableInterface
     private ?int $price = null; // Changed to int
 
     #[ORM\ManyToOne(inversedBy: 'meals')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read', 'create'])]
     private ?Restaurant $restaurant = null;

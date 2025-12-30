@@ -77,13 +77,14 @@ class DeliveryRepository extends ServiceEntityRepository
         $startDate = \DateTime::createFromInterface($date)->setTime(0, 0, 0);
         $endDate = \DateTime::createFromInterface($date)->setTime(23, 59, 59);
 
-        // Query to sum up quantities of meal plans for deliveries scheduled on this date
-        // We join Delivery -> Order -> OrderItems -> MealPlan
+        // Query to sum up quantities of MEALS derived from meal plans for deliveries scheduled on this date
+        // We join Delivery -> Order -> OrderItems -> MealPlan -> Meals
         return $this->createQueryBuilder('d')
-            ->select('mp.name as mealName, SUM(oi.quantity) as count')
+            ->select('m.name as mealName, SUM(oi.quantity) as count')
             ->join('d.order', 'o')
             ->join('o.orderItems', 'oi')
             ->join('oi.mealPlan', 'mp')
+            ->join('mp.meals', 'm')
             ->where('o.restaurant = :restaurant')
             ->andWhere('d.deliveryDate >= :startDate')
             ->andWhere('d.deliveryDate <= :endDate')
@@ -93,8 +94,8 @@ class DeliveryRepository extends ServiceEntityRepository
             ->setParameter('startDate', $startDate)
             ->setParameter('endDate', $endDate)
             ->setParameter('cancelledStatus', \App\Enum\OrderStatus::Cancelled)
-            ->groupBy('mp.id')
-            ->orderBy('mp.name', 'ASC')
+            ->groupBy('m.id')
+            ->orderBy('m.name', 'ASC')
             ->getQuery()
             ->getResult();
     }

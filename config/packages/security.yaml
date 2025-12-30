@@ -18,15 +18,15 @@ security:
         username_path: email
         success_handler: lexik_jwt_authentication.handler.authentication_success
         failure_handler: lexik_jwt_authentication.handler.authentication_failure
+    refresh:
+      pattern: ^/api/token/refresh
+      stateless: true
+      refresh_jwt: ~
     api:
       pattern: ^/api
       stateless: true
       entry_point: jwt
       jwt: ~
-      refresh_jwt: ~
-      
-      # logout:
-      #   path: /api/logout
 
   access_control:
     - { path: ^/api/(graphql|home|login|register|images|token|logout), roles: PUBLIC_ACCESS }
