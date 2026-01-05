@@ -20,17 +20,17 @@ class UserFixtures extends Fixture
     public const RESTAURANT_OWNER_5 = 'user_restaurant_owner_5';
     public const RESTAURANT_OWNER_6 = 'user_restaurant_owner_6';
 
-    // Driver users
-    public const DRIVER_1 = 'user_driver_1';
-    public const DRIVER_2 = 'user_driver_2';
-    public const DRIVER_3 = 'user_driver_3';
-    public const DRIVER_4 = 'user_driver_4';
-    public const DRIVER_5 = 'user_driver_5';
-    public const DRIVER_6 = 'user_driver_6';
-    public const DRIVER_7 = 'user_driver_7';
-    public const DRIVER_8 = 'user_driver_8';
-    public const DRIVER_9 = 'user_driver_9';
-    public const DRIVER_10 = 'user_driver_10';
+    // Courier users
+    public const COURIER_1 = 'user_courier_1';
+    public const COURIER_2 = 'user_courier_2';
+    public const COURIER_3 = 'user_courier_3';
+    public const COURIER_4 = 'user_courier_4';
+    public const COURIER_5 = 'user_courier_5';
+    public const COURIER_6 = 'user_courier_6';
+    public const COURIER_7 = 'user_courier_7';
+    public const COURIER_8 = 'user_courier_8';
+    public const COURIER_9 = 'user_courier_9';
+    public const COURIER_10 = 'user_courier_10';
 
     // Customer users
     public const CUSTOMER_1 = 'user_customer_1';
@@ -71,27 +71,27 @@ class UserFixtures extends Fixture
             $this->addReference($reference, $owner);
         }
 
-        // Create 8 drivers (we'll assign them to restaurants later)
-        $drivers = [
-            self::DRIVER_1 => 'driver1@example.com',
-            self::DRIVER_2 => 'driver2@example.com',
-            self::DRIVER_3 => 'driver3@example.com',
-            self::DRIVER_4 => 'driver4@example.com',
-            self::DRIVER_5 => 'driver5@example.com',
-            self::DRIVER_6 => 'driver6@example.com',
-            self::DRIVER_7 => 'driver7@example.com',
-            self::DRIVER_8 => 'driver8@example.com',
-            self::DRIVER_9 => 'driver9@example.com',
-            self::DRIVER_10 => 'driver10@example.com',
+        // Create 8 couriers (we'll assign them to restaurants later)
+        $couriers = [
+            self::COURIER_1 => 'courier1@example.com',
+            self::COURIER_2 => 'courier2@example.com',
+            self::COURIER_3 => 'courier3@example.com',
+            self::COURIER_4 => 'courier4@example.com',
+            self::COURIER_5 => 'courier5@example.com',
+            self::COURIER_6 => 'courier6@example.com',
+            self::COURIER_7 => 'courier7@example.com',
+            self::COURIER_8 => 'courier8@example.com',
+            self::COURIER_9 => 'courier9@example.com',
+            self::COURIER_10 => 'courier10@example.com',
         ];
 
-        foreach ($drivers as $reference => $email) {
-            $driver = new User();
-            $driver->setEmail($email);
-            $driver->setRoles(['ROLE_DRIVER']);
-            $driver->setPassword($this->passwordHasher->hashPassword($driver, 'password'));
-            $manager->persist($driver);
-            $this->addReference($reference, $driver);
+        foreach ($couriers as $reference => $email) {
+            $courier = new User();
+            $courier->setEmail($email);
+            $courier->setRoles(['ROLE_COURIER']);
+            $courier->setPassword($this->passwordHasher->hashPassword($courier, 'password'));
+            $manager->persist($courier);
+            $this->addReference($reference, $courier);
         }
 
         // Create 25 customers

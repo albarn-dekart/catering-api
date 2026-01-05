@@ -24,6 +24,10 @@ services:
     arguments:
       $stripeWebhookSecret: '%env(STRIPE_WEBHOOK_SECRET)%'
 
+  App\Service\MailerService:
+    arguments:
+      $senderEmail: '%env(MAILER_SENDER)%'
+
   App\EventListener\JWTCreatedListener:
     tags:
       - { name: kernel.event_listener, event: lexik_jwt_authentication.on_jwt_created, method: onJWTCreated }

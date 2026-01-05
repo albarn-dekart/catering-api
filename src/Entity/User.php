@@ -63,7 +63,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['read'])]
     private Collection $orders;
 
-    #[ORM\OneToMany(targetEntity: Delivery::class, mappedBy: 'driver')]
+    #[ORM\OneToMany(targetEntity: Delivery::class, mappedBy: 'courier')]
     #[ORM\OrderBy(['id' => 'DESC'])]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
@@ -196,7 +196,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if (!$this->deliveries->contains($delivery)) {
             $this->deliveries->add($delivery);
-            $delivery->setDriver($this);
+            $delivery->setCourier($this);
         }
 
         return $this;
@@ -206,8 +206,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if ($this->deliveries->removeElement($delivery)) {
             // set the owning side to null (unless already changed)
-            if ($delivery->getDriver() === $this) {
-                $delivery->setDriver(null);
+            if ($delivery->getCourier() === $this) {
+                $delivery->setCourier(null);
             }
         }
 

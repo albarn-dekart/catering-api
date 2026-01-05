@@ -20,11 +20,11 @@ class DeliveryRepository extends ServiceEntityRepository
         parent::__construct($registry, Delivery::class);
     }
 
-    public function createDriverDeliveriesQueryBuilder(User $driver): QueryBuilder
+    public function createCourierDeliveriesQueryBuilder(User $courier): QueryBuilder
     {
         return $this->createQueryBuilder('d')
-            ->andWhere('d.driver = :driver')
-            ->setParameter('driver', $driver)
+            ->andWhere('d.courier = :courier')
+            ->setParameter('courier', $courier)
             ->orderBy('d.deliveryDate', 'DESC');
     }
 

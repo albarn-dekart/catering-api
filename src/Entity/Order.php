@@ -37,7 +37,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
     normalizationContext: ['groups' => ['read']],
     denormalizationContext: ['groups' => ['create', 'update']],
     graphQlOperations: [
-        new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER') or is_granted('ROLE_DRIVER')"),
+        new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER') or is_granted('ROLE_COURIER')"),
         new Query(security: "is_granted('ROLE_CUSTOMER') and object.getCustomer() == user or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or is_granted('ROLE_ADMIN')"),
         new Mutation(security: "is_granted('ROLE_CUSTOMER')", name: 'create'),
         new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or (is_granted('ROLE_CUSTOMER') and object.getCustomer() == user)", name: 'update'),
@@ -112,6 +112,10 @@ class Order
     #[ORM\Column(length: 255, nullable: true)]
     #[Groups(['read', 'create'])]
     private ?string $deliveryZipCode = null;
+
+    #[ORM\Column(nullable: true)]
+    #[Groups(['read'])]
+    private ?int $deliveryFee = null;
 
     #[ORM\Column(type: 'datetime')]
     #[Groups(['read'])]
@@ -191,6 +195,21 @@ class Order
     {
         $this->restaurant = $restaurant;
 
+        if ($restaurant !== null && $this->deliveryFee === null) {
+            $this->deliveryFee = $restaurant->getDeliveryPrice();
+        }
+
+        return $this;
+    }
+
+    public function getDeliveryFee(): ?int
+    {
+        return $this->deliveryFee;
+    }
+
+    public function setDeliveryFee(?int $deliveryFee): static
+    {
+        $this->deliveryFee = $deliveryFee;
         return $this;
     }
 
@@ -457,8 +476,9 @@ class Order
         // Calculate Total
         $subtotal = 0;
         foreach ($this->orderItems as $item) {
-            if ($item->getMealPlan() && $item->getQuantity()) {
-                $subtotal += $item->getMealPlan()->getPrice() * $item->getQuantity();
+            $itemPrice = $item->getMealPlanPrice() ?? ($item->getMealPlan() ? $item->getMealPlan()->getPrice() : 0);
+            if ($itemPrice && $item->getQuantity()) {
+                $subtotal += $itemPrice * $item->getQuantity();
             }
         }
 
@@ -467,8 +487,9 @@ class Order
             $subtotal *= $deliveryCount;
 
             // Add delivery fees
-            if ($this->restaurant) {
-                $subtotal += ($this->restaurant->getDeliveryPrice() * $deliveryCount);
+            $currentDeliveryFee = $this->deliveryFee ?? ($this->restaurant ? $this->restaurant->getDeliveryPrice() : 0);
+            if ($currentDeliveryFee > 0) {
+                $subtotal += ($currentDeliveryFee * $deliveryCount);
             }
         }
         $this->total = $subtotal;

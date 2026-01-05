@@ -87,7 +87,7 @@ class StatisticsController extends AbstractController
             'averageOrderValue' => $averageOrderValue,
             'customerCount' => $usersByRole['ROLE_CUSTOMER'] ?? 0,
             'restaurantCount' => $usersByRole['ROLE_RESTAURANT'] ?? 0,
-            'driverCount' => $usersByRole['ROLE_DRIVER'] ?? 0,
+            'courierCount' => $usersByRole['ROLE_COURIER'] ?? 0,
             'adminCount' => $usersByRole['ROLE_ADMIN'] ?? 0,
             'revenueTimeSeries' => $revenueTimeSeries,
             'dailyOrdersTimeSeries' => $dailyOrdersTimeSeries,

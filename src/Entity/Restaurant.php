@@ -126,13 +126,13 @@ class Restaurant implements ImageUploadableInterface
     private ?User $owner = null;
 
     /**
-     * Drivers assigned to this restaurant
+     * Couriers assigned to this restaurant
      */
     #[ORM\ManyToMany(targetEntity: User::class)]
-    #[ORM\JoinTable(name: 'restaurant_drivers')]
+    #[ORM\JoinTable(name: 'restaurant_couriers')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read', 'create', 'update'])]
-    private Collection $drivers;
+    private Collection $couriers;
 
     #[ORM\ManyToMany(targetEntity: RestaurantCategory::class, inversedBy: 'restaurants')]
     #[ApiProperty(readableLink: true, writableLink: false)]
@@ -167,7 +167,7 @@ class Restaurant implements ImageUploadableInterface
 
     public function __construct()
     {
-        $this->drivers = new ArrayCollection();
+        $this->couriers = new ArrayCollection();
         $this->restaurantCategories = new ArrayCollection();
         $this->meals = new ArrayCollection();
         $this->mealPlans = new ArrayCollection();
@@ -340,23 +340,23 @@ class Restaurant implements ImageUploadableInterface
     /**
      * @return Collection<int, User>
      */
-    public function getDrivers(): Collection
+    public function getCouriers(): Collection
     {
-        return $this->drivers;
+        return $this->couriers;
     }
 
-    public function addDriver(User $driver): static
+    public function addCourier(User $courier): static
     {
-        if (!$this->drivers->contains($driver)) {
-            $this->drivers->add($driver);
+        if (!$this->couriers->contains($courier)) {
+            $this->couriers->add($courier);
         }
 
         return $this;
     }
 
-    public function removeDriver(User $driver): static
+    public function removeCourier(User $courier): static
     {
-        $this->drivers->removeElement($driver);
+        $this->couriers->removeElement($courier);
 
         return $this;
     }

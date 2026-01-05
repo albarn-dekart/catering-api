@@ -62,9 +62,8 @@
         </thead>
         <tbody>
             {% for item in order.orderItems %}
-                {% set mealPlan = item.mealPlan %}
-                {% set mealName = mealPlan ? mealPlan.name : 'Produkt' %}
-                {% set price = mealPlan ? mealPlan.price : 0 %}
+                {% set mealName = item.mealPlanName ?: 'Produkt' %}
+                {% set price = item.mealPlanPrice ?: 0 %}
                 <tr>
                     <td>{{ mealName }}</td>
                     <td class="text-right">{{ item.quantity }}</td>
@@ -74,7 +73,7 @@
             {% endfor %}
             
             {% set deliveryCount = order.deliveries|length %}
-            {% set deliveryPrice = order.restaurant ? order.restaurant.deliveryPrice : 0 %}
+            {% set deliveryPrice = order.deliveryFee ?? 0 %}
             {% set totalPerDay = deliveryCount > 0 ? (order.total / deliveryCount) : 0 %}
             {% set foodCostPerDay = totalPerDay - deliveryPrice %}
 
@@ -100,7 +99,7 @@
     <div class="section-title">Harmonogram dostaw:</div>
     <ul>
         {% for delivery in order.deliveries %}
-            <li>{{ delivery.deliveryDate|date("Y-m-d") }} ({{ delivery.status.value }})</li>
+            <li>{{ delivery.deliveryDate|date("Y-m-d") }}</li>
         {% endfor %}
     </ul>
 

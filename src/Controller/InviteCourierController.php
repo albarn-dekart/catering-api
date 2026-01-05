@@ -18,7 +18,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[AsController]
-class InviteDriverController extends AbstractController
+class InviteCourierController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -30,7 +30,7 @@ class InviteDriverController extends AbstractController
     /**
      * @throws RandomException
      */
-    #[Route('/api/invite-driver', name: 'invite_driver', methods: ['POST'])]
+    #[Route('/api/invite-courier', name: 'invite_courier', methods: ['POST'])]
     #[IsGranted(new Expression("is_granted('ROLE_RESTAURANT') or is_granted('ROLE_ADMIN')"))]
     public function __invoke(Request $request): JsonResponse
     {
@@ -62,9 +62,9 @@ class InviteDriverController extends AbstractController
 
         $user = new User();
         $user->setEmail($email);
-        $user->setRoles(['ROLE_DRIVER']);
-        // Add driver to restaurant's drivers collection
-        $restaurant->addDriver($user);
+        $user->setRoles(['ROLE_COURIER']);
+        // Add courier to restaurant's couriers collection
+        $restaurant->addCourier($user);
 
         // Validate User
         $errors = $this->validator->validate($user);
@@ -83,7 +83,7 @@ class InviteDriverController extends AbstractController
         $this->entityManager->flush();
 
         // Send invitation email
-        $this->mailerService->sendDriverInvitation($email, $plainPassword);
+        $this->mailerService->sendCourierInvitation($email, $plainPassword);
 
         return new JsonResponse([
             'id' => $user->getId(),

@@ -39,7 +39,7 @@ class StripeEventController extends AbstractController
         Stripe::setApiKey($this->stripeSecretKey);
     }
 
-    #[Route('/stripe/webhook', name: 'stripe_webhook', methods: ['POST'])]
+    #[Route('/api/stripe/webhook', name: 'stripe_webhook', methods: ['POST'])]
     public function webhook(Request $request): Response
     {
         $payload = $request->getContent();

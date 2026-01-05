@@ -13,10 +13,10 @@ class MailerService
     public function __construct(
         private readonly MailerInterface $mailer,
         private readonly LoggerInterface $logger,
-        private readonly string $senderEmail = 'no-reply@catering-system.com'
+        private readonly string $senderEmail
     ) {}
 
-    public function sendDriverInvitation(string $email, string $password): void
+    public function sendCourierInvitation(string $email, string $password): void
     {
         $subject = 'Zaproszenie do zespołu kierowców';
         $content = sprintf(

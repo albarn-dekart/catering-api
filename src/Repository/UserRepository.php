@@ -20,9 +20,9 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return User[] Returns an array of User objects with ROLE_DRIVER for a specific restaurant
+     * @return User[] Returns an array of User objects with ROLE_COURIER for a specific restaurant
      */
-    public function findDriversByRestaurant(int $restaurantId): array
+    public function findCouriersByRestaurant(int $restaurantId): array
     {
         $restaurant = $this->getEntityManager()
             ->getRepository(\App\Entity\Restaurant::class)
@@ -32,8 +32,8 @@ class UserRepository extends ServiceEntityRepository
             return [];
         }
 
-        return $restaurant->getDrivers()->filter(function (User $user) {
-            return in_array('ROLE_DRIVER', $user->getRoles());
+        return $restaurant->getCouriers()->filter(function (User $user) {
+            return in_array('ROLE_COURIER', $user->getRoles());
         })->values();
     }
 
@@ -48,7 +48,7 @@ class UserRepository extends ServiceEntityRepository
         $rolesCounts = [
             'ROLE_CUSTOMER' => 0,
             'ROLE_RESTAURANT' => 0,
-            'ROLE_DRIVER' => 0,
+            'ROLE_COURIER' => 0,
             'ROLE_ADMIN' => 0,
         ];
 
@@ -59,8 +59,8 @@ class UserRepository extends ServiceEntityRepository
                 $rolesCounts['ROLE_ADMIN']++;
             } elseif (in_array('ROLE_RESTAURANT', $roles)) {
                 $rolesCounts['ROLE_RESTAURANT']++;
-            } elseif (in_array('ROLE_DRIVER', $roles)) {
-                $rolesCounts['ROLE_DRIVER']++;
+            } elseif (in_array('ROLE_COURIER', $roles)) {
+                $rolesCounts['ROLE_COURIER']++;
             } elseif (in_array('ROLE_CUSTOMER', $roles)) {
                 $rolesCounts['ROLE_CUSTOMER']++;
             }

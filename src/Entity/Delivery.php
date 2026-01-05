@@ -25,7 +25,7 @@ use App\Filter\DeliverySearchFilter;
 #[ApiFilter(DeliverySearchFilter::class)]
 #[ApiFilter(SearchFilter::class, properties: [
     'status' => 'exact',
-    'driver' => 'exact',
+    'courier' => 'exact',
     'order.restaurant' => 'exact'
 ])]
 #[ApiFilter(OrderFilter::class, properties: ['deliveryDate', 'id'])]
@@ -35,9 +35,9 @@ use App\Filter\DeliverySearchFilter;
     normalizationContext: ['groups' => ['read']],
     denormalizationContext: ['groups' => ['update']],
     graphQlOperations: [
-        new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_DRIVER') or is_granted('ROLE_CUSTOMER')"),
-        new Query(security: "is_granted('ROLE_ADMIN') or object.getOrder().getRestaurant().getOwner() == user or object.getDriver() == user or object.getOrder().getCustomer() == user"),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or object.getDriver() == user or object.isOwnedByRestaurantOwner(user)", name: 'update'),
+        new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_COURIER') or is_granted('ROLE_CUSTOMER')"),
+        new Query(security: "is_granted('ROLE_ADMIN') or object.getOrder().getRestaurant().getOwner() == user or object.getCourier() == user or object.getOrder().getCustomer() == user"),
+        new Mutation(security: "is_granted('ROLE_ADMIN') or object.getCourier() == user or object.isOwnedByRestaurantOwner(user)", name: 'update'),
         new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
     ],
 )]
@@ -54,7 +54,7 @@ class Delivery
     #[ORM\JoinColumn(onDelete: 'SET NULL')]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read', 'update'])]
-    private ?User $driver = null;
+    private ?User $courier = null;
 
     #[ORM\Column(type: 'string', enumType: DeliveryStatus::class)]
     #[Assert\NotNull]
@@ -73,11 +73,6 @@ class Delivery
     #[Groups(['read'])]
     private ?Order $order = null;
 
-    public function isDrivenBy(User $user): bool
-    {
-        return $this->driver === $user;
-    }
-
     public function isOwnedByRestaurantOwner(User $user): bool
     {
         return $this->getOrder()?->getRestaurant()?->getOwner() === $user;
@@ -88,16 +83,16 @@ class Delivery
         return $this->id;
     }
 
-    public function getDriver(): ?User
+    public function getCourier(): ?User
     {
-        return $this->driver;
+        return $this->courier;
     }
 
-    public function setDriver(?User $driver): static
+    public function setCourier(?User $courier): static
     {
-        $this->driver = $driver;
+        $this->courier = $courier;
 
-        if ($driver !== null && $this->status === DeliveryStatus::Pending) {
+        if ($courier !== null && $this->status === DeliveryStatus::Pending) {
             $this->setStatus(DeliveryStatus::Assigned);
         }
 

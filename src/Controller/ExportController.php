@@ -199,7 +199,7 @@ class ExportController extends AbstractController
         $qb = $this->deliveryRepository->createQueryBuilder('d')
             ->leftJoin('d.order', 'o')
             ->leftJoin('o.restaurant', 'restaurant')
-            ->leftJoin('d.driver', 'driver')
+            ->leftJoin('d.courier', 'courier')
             ->orderBy('d.deliveryDate', 'DESC');
 
         if ($this->isGranted('ROLE_RESTAURANT')) {
@@ -237,7 +237,7 @@ class ExportController extends AbstractController
                 'Restaurant',
                 'Delivery Date',
                 'Status',
-                'Driver Email',
+                'Courier Email',
                 'Delivery Address',
             ]);
 
@@ -257,7 +257,7 @@ class ExportController extends AbstractController
                     $delivery->getOrder()?->getRestaurant()?->getName() ?? 'N/A',
                     $delivery->getDeliveryDate()->format('Y-m-d'),
                     $delivery->getStatus()->value,
-                    $delivery->getDriver()?->getEmail() ?? 'Unassigned',
+                    $delivery->getCourier()?->getEmail() ?? 'Unassigned',
                     $deliveryAddress,
                 ]);
             }
