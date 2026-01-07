@@ -67,15 +67,11 @@ class DeliveryRepository extends ServiceEntityRepository
         return $counts;
     }
 
-    /**
-     * Get the production plan for a specific date (or range)
-     * Returns an array like: [['mealName' => 'Keto', 'count' => 50], ...]
-     */
-    public function getProductionPlan(Restaurant $restaurant, \DateTimeInterface $date): array
+    public function getProductionPlan(Restaurant $restaurant, \DateTimeInterface $startDate, \DateTimeInterface $endDate): array
     {
-        // Set time range for the entire day (00:00:00 to 23:59:59)
-        $startDate = \DateTime::createFromInterface($date)->setTime(0, 0, 0);
-        $endDate = \DateTime::createFromInterface($date)->setTime(23, 59, 59);
+        // Set time range for the period
+        $start = \DateTime::createFromInterface($startDate)->setTime(0, 0, 0);
+        $end = \DateTime::createFromInterface($endDate)->setTime(23, 59, 59);
 
         // Query to sum up quantities of MEALS derived from meal plans for deliveries scheduled on this date
         // We join Delivery -> Order -> OrderItems -> MealPlan -> Meals
@@ -91,8 +87,8 @@ class DeliveryRepository extends ServiceEntityRepository
             // Exclude cancelled orders
             ->andWhere('o.status != :cancelledStatus')
             ->setParameter('restaurant', $restaurant)
-            ->setParameter('startDate', $startDate)
-            ->setParameter('endDate', $endDate)
+            ->setParameter('startDate', $start)
+            ->setParameter('endDate', $end)
             ->setParameter('cancelledStatus', \App\Enum\OrderStatus::Cancelled)
             ->groupBy('m.id')
             ->orderBy('m.name', 'ASC')

@@ -37,7 +37,11 @@ use App\Filter\DeliverySearchFilter;
     graphQlOperations: [
         new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_COURIER') or is_granted('ROLE_CUSTOMER')"),
         new Query(security: "is_granted('ROLE_ADMIN') or object.getOrder().getRestaurant().getOwner() == user or object.getCourier() == user or object.getOrder().getCustomer() == user"),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or object.getCourier() == user or object.isOwnedByRestaurantOwner(user)", name: 'update'),
+        new Mutation(
+            security: "is_granted('ROLE_ADMIN') or object.getCourier() == user or object.isOwnedByRestaurantOwner(user)",
+            name: 'update',
+            processor: \App\State\DeliveryStatusProcessor::class
+        ),
         new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
     ],
 )]

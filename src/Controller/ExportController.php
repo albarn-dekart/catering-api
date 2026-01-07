@@ -314,35 +314,27 @@ class ExportController extends AbstractController
             $startDate,
             $endDate
         ) {
+            $period = $startDate && $endDate ? $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d') : 'All Time';
+
             $handle = fopen('php://output', 'w');
 
             // CSV Header
-            fputcsv($handle, ['Report Period', $startDate && $endDate ? $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d') : 'All Time']);
-            fputcsv($handle, []);
-            fputcsv($handle, ['Metric', 'Value']);
+            fputcsv($handle, ['Period', 'Category', 'Metric', 'Value']);
 
             // Overall Statistics
-            fputcsv($handle, ['Total Revenue (PLN)', number_format($totalRevenue, 2, '.', '')]);
-            fputcsv($handle, ['Total Orders', $totalOrders]);
-            fputcsv($handle, ['Average Order Value (PLN)', number_format($averageOrderValue, 2, '.', '')]);
-            fputcsv($handle, ['Total Users', $totalUsers]);
-
-            // Empty row for separation
-            fputcsv($handle, []);
+            fputcsv($handle, [$period, 'Overall', 'Total Revenue (PLN)', number_format($totalRevenue, 2, '.', '')]);
+            fputcsv($handle, [$period, 'Overall', 'Total Orders', $totalOrders]);
+            fputcsv($handle, [$period, 'Overall', 'Average Order Value (PLN)', number_format($averageOrderValue, 2, '.', '')]);
+            fputcsv($handle, [$period, 'Overall', 'Total Users', $totalUsers]);
 
             // Orders by Status
-            fputcsv($handle, ['Orders by Status', '']);
             foreach ($orderCountsByStatus as $status => $count) {
-                fputcsv($handle, [$status, $count]);
+                fputcsv($handle, [$period, 'Order Status', $status, $count]);
             }
 
-            // Empty row for separation
-            fputcsv($handle, []);
-
             // Users by Role
-            fputcsv($handle, ['Users by Role', '']);
             foreach ($usersByRole as $role => $count) {
-                fputcsv($handle, [$role, $count]);
+                fputcsv($handle, [$period, 'User Role', $role, $count]);
             }
 
             fclose($handle);
@@ -423,23 +415,20 @@ class ExportController extends AbstractController
             $startDate,
             $endDate
         ) {
+            $period = $startDate && $endDate ? $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d') : 'All Time';
             $handle = fopen('php://output', 'w');
 
             // CSV Header
-            fputcsv($handle, ['Restaurant Statistics Report']);
-            fputcsv($handle, ['Restaurant', $restaurant->getName()]);
-            fputcsv($handle, ['Report Period', $startDate && $endDate ? $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d') : 'All Time']);
-            fputcsv($handle, []);
-            fputcsv($handle, ['Metric', 'Value']);
+            fputcsv($handle, ['Restaurant', 'Period', 'Metric', 'Value']);
 
             // Statistics
-            fputcsv($handle, ['Total Revenue (PLN)', number_format($totalRevenue, 2, '.', '')]);
-            fputcsv($handle, ['Total Orders', $totalOrders]);
-            fputcsv($handle, ['Average Order Value (PLN)', number_format($averageOrderValue, 2, '.', '')]);
-            fputcsv($handle, ['Active Orders', $activeOrders]);
-            fputcsv($handle, ['Completed Orders', $completedOrders]);
-            fputcsv($handle, ['Total Deliveries', $totalDeliveries]);
-            fputcsv($handle, ['Delivery Success Rate (%)', number_format($deliverySuccessRate, 1, '.', '')]);
+            fputcsv($handle, [$restaurant->getName(), $period, 'Total Revenue (PLN)', number_format($totalRevenue, 2, '.', '')]);
+            fputcsv($handle, [$restaurant->getName(), $period, 'Total Orders', $totalOrders]);
+            fputcsv($handle, [$restaurant->getName(), $period, 'Average Order Value (PLN)', number_format($averageOrderValue, 2, '.', '')]);
+            fputcsv($handle, [$restaurant->getName(), $period, 'Active Orders', $activeOrders]);
+            fputcsv($handle, [$restaurant->getName(), $period, 'Completed Orders', $completedOrders]);
+            fputcsv($handle, [$restaurant->getName(), $period, 'Total Deliveries', $totalDeliveries]);
+            fputcsv($handle, [$restaurant->getName(), $period, 'Delivery Success Rate (%)', number_format($deliverySuccessRate, 1, '.', '')]);
 
             fclose($handle);
         });
@@ -471,38 +460,38 @@ class ExportController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true) ?? [];
-        $dateStr = $data['date'] ?? 'today';
-        $date = new DateTime($dateStr);
+        $startDateStr = $data['startDate'] ?? 'today';
+        $endDateStr = $data['endDate'] ?? $startDateStr;
+        $startDate = new DateTime($startDateStr);
+        $endDate = new DateTime($endDateStr);
 
-        $productionPlan = $this->deliveryRepository->getProductionPlan($restaurant, $date);
+        $productionPlan = $this->deliveryRepository->getProductionPlan($restaurant, $startDate, $endDate);
 
         // Create CSV response
-        $response = new StreamedResponse(function () use ($restaurant, $productionPlan, $date) {
+        $response = new StreamedResponse(function () use ($restaurant, $productionPlan, $startDate, $endDate) {
             $handle = fopen('php://output', 'w');
 
             // CSV Header
-            fputcsv($handle, ['Kitchen Production Plan']);
-            fputcsv($handle, ['Restaurant', $restaurant->getName()]);
-            fputcsv($handle, ['Production Date', $date->format('Y-m-d')]);
-            fputcsv($handle, []);
-            fputcsv($handle, ['Meal Name', 'Quantity to Cook']);
+            fputcsv($handle, ['Restaurant', 'Period', 'Meal Name', 'Quantity']);
+
+            $period = $startDate->format('Y-m-d') === $endDate->format('Y-m-d')
+                ? $startDate->format('Y-m-d')
+                : $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d');
 
             // Data
             foreach ($productionPlan as $item) {
                 fputcsv($handle, [
+                    $restaurant->getName(),
+                    $period,
                     $item['mealName'],
                     $item['count']
                 ]);
             }
 
-            // Summary
-            fputcsv($handle, []);
-            fputcsv($handle, ['Total Meals', array_sum(array_column($productionPlan, 'count'))]);
-
             fclose($handle);
         });
 
-        $filename = 'production_plan_' . $restaurantId . '_' . $date->format('Y-m-d') . '.csv';
+        $filename = 'production_plan_' . $restaurantId . '_' . $startDate->format('Y-m-d') . '_' . $endDate->format('Y-m-d') . '.csv';
         $response->headers->set('Content-Type', 'text/csv');
         $response->headers->set('Content-Disposition', "attachment; filename=\"$filename\"");
 

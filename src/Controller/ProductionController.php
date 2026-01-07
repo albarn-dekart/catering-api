@@ -46,13 +46,23 @@ class ProductionController extends AbstractController
             }
         }
 
+        $startDateStr = $request->query->get('startDate');
+        $endDateStr = $request->query->get('endDate');
         $dateStr = $request->query->get('date');
-        $date = $dateStr ? new DateTime($dateStr) : new DateTime('today'); // Default to today to show current delivery needs
 
-        $productionPlan = $this->deliveryRepository->getProductionPlan($restaurant, $date);
+        if ($dateStr) {
+            $startDate = new DateTime($dateStr);
+            $endDate = new DateTime($dateStr);
+        } else {
+            $startDate = $startDateStr ? new DateTime($startDateStr) : new DateTime('today');
+            $endDate = $endDateStr ? new DateTime($endDateStr) : $startDate;
+        }
+
+        $productionPlan = $this->deliveryRepository->getProductionPlan($restaurant, $startDate, $endDate);
 
         return $this->json([
-            'date' => $date->format('Y-m-d'),
+            'startDate' => $startDate->format('Y-m-d'),
+            'endDate' => $endDate->format('Y-m-d'),
             'items' => $productionPlan,
         ]);
     }

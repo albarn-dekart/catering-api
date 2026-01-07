@@ -34,16 +34,24 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
 
             $daysAgo = (new \DateTime())->diff($order->getCreatedAt())->days;
 
+            if ($order->getStatus() === OrderStatus::Completed) {
+                // For Completed orders, all deliveries MUST be in the past.
+                // We ensure the last delivery is at least 1 day ago.
+                $maxStart = max(0, $daysAgo - $numDeliveries);
+                $deliveryPeriodDaysStart = $faker->numberBetween(0, $maxStart);
+
+                // If it's impossible to fit all deliveries in the past, downgrade to Active
+                if ($deliveryPeriodDaysStart + $numDeliveries > $daysAgo) {
+                    $order->setStatus(OrderStatus::Active);
+                }
+            }
+
             if ($order->getStatus() === OrderStatus::Active) {
-                // For Active orders, start delivery such that it overlaps with 'today'
-                // Latest delivery date is $orderDate + $start + $numDeliveries - 1
-                // We want: $orderDate + $start + $numDeliveries - 1 >= today
-                // Which means: $start + $numDeliveries - 1 >= $daysAgo
-                // $start >= $daysAgo - $numDeliveries + 1
+                // For Active orders, we want deliveries to overlap with today/future
                 $minStart = max(0, $daysAgo - $numDeliveries + 1);
                 $maxStart = max($minStart, min(5, $daysAgo));
                 $deliveryPeriodDaysStart = $faker->numberBetween($minStart, $maxStart);
-            } else {
+            } else if ($order->getStatus() !== OrderStatus::Completed) {
                 $deliveryPeriodDaysStart = $faker->numberBetween(1, 7);
             }
 
@@ -76,10 +84,11 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
     private function getDeliveryStatus(OrderStatus $orderStatus, DateTimeImmutable $deliveryDate, Generator $faker): DeliveryStatus
     {
         $now = new DateTimeImmutable();
+        $isFuture = $deliveryDate > $now && $deliveryDate->format('Y-m-d') !== $now->format('Y-m-d');
 
-        // For Completed orders: all delivered
+        // For Completed orders: all delivered (but cap at today)
         if ($orderStatus === OrderStatus::Completed) {
-            return DeliveryStatus::Delivered;
+            return $isFuture ? DeliveryStatus::Assigned : DeliveryStatus::Delivered;
         }
 
         // For Cancelled orders: mostly failed or returned if generated
@@ -89,8 +98,8 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
 
         // For Active orders: varied statuses based on delivery date
         if ($orderStatus === OrderStatus::Active) {
-            if ($deliveryDate < $now) {
-                // Past deliveries: mostly delivered, some picked up, failed or returned
+            if ($deliveryDate < $now && $deliveryDate->format('Y-m-d') !== $now->format('Y-m-d')) {
+                // Past deliveries (strictly before today)
                 $rand = $faker->numberBetween(1, 100);
                 if ($rand <= 85) {
                     return DeliveryStatus::Delivered;
