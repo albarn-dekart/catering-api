@@ -76,6 +76,7 @@ class Restaurant implements ImageUploadableInterface
 
     #[ORM\Column(length: 20, nullable: true)]
     #[Groups(['read', 'create', 'update'])]
+    #[Assert\NotBlank]
     #[Assert\Length(max: 20)]
     #[Assert\Regex(
         pattern: '/^(\+48)?\s?(\d{3}[-\s]?\d{3}[-\s]?\d{3}|\d{9})$/',
@@ -157,7 +158,7 @@ class Restaurant implements ImageUploadableInterface
 
 
     #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'restaurant', orphanRemoval: true)]
-    #[ORM\OrderBy(['id' => 'DESC'])]
+    #[ORM\OrderBy(['createdAt' => 'DESC'])]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private Collection $orders;

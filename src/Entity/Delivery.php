@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\GraphQl\QueryCollection;
 use App\Enum\DeliveryStatus;
 use App\Enum\OrderStatus;
 use App\Repository\DeliveryRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -21,6 +22,7 @@ use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
 use App\Filter\DeliverySearchFilter;
 
 #[ORM\Entity(repositoryClass: DeliveryRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 #[ApiFilter(DateFilter::class, properties: ['deliveryDate'])]
 #[ApiFilter(DeliverySearchFilter::class)]
 #[ApiFilter(SearchFilter::class, properties: [
@@ -77,6 +79,10 @@ class Delivery
     #[Groups(['read'])]
     private ?Order $order = null;
 
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    #[Groups(['read'])]
+    private ?\DateTimeInterface $statusUpdatedAt = null;
+
     public function isOwnedByRestaurantOwner(User $user): bool
     {
         return $this->getOrder()?->getRestaurant()?->getOwner() === $user;
@@ -111,6 +117,7 @@ class Delivery
     public function setStatus(DeliveryStatus $status): static
     {
         $this->status = $status;
+        $this->statusUpdatedAt = new \DateTime();
 
         $order = $this->getOrder();
         if ($order) {
@@ -120,6 +127,14 @@ class Delivery
                 ($status === DeliveryStatus::Assigned ||
                     $status === DeliveryStatus::Picked_up ||
                     $status === DeliveryStatus::Delivered)
+            ) {
+                $order->setStatus(OrderStatus::Active);
+            }
+
+            // Completed -> Active (Revert)
+            if (
+                $order->getStatus() === OrderStatus::Completed &&
+                ($status !== DeliveryStatus::Delivered && $status !== DeliveryStatus::Returned)
             ) {
                 $order->setStatus(OrderStatus::Active);
             }
@@ -135,8 +150,8 @@ class Delivery
                 foreach ($order->getDeliveries() as $delivery) {
                     // Check if delivery is in any terminal state (Delivered OR Returned)
                     // Failed is NOT terminal (can still be retried)
-                    $status = $delivery->getStatus();
-                    if ($status !== DeliveryStatus::Delivered && $status !== DeliveryStatus::Returned) {
+                    $deliveryStatus = $delivery->getStatus();
+                    if ($deliveryStatus !== DeliveryStatus::Delivered && $deliveryStatus !== DeliveryStatus::Returned) {
                         $allDelivered = false;
                         break;
                     }
@@ -149,6 +164,26 @@ class Delivery
         }
 
         return $this;
+    }
+
+    public function getStatusUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->statusUpdatedAt;
+    }
+
+    public function setStatusUpdatedAt(?\DateTimeInterface $statusUpdatedAt): static
+    {
+        $this->statusUpdatedAt = $statusUpdatedAt;
+
+        return $this;
+    }
+
+    #[ORM\PrePersist]
+    public function onPrePersist(): void
+    {
+        if ($this->statusUpdatedAt === null) {
+            $this->statusUpdatedAt = new \DateTime();
+        }
     }
 
     public function getDeliveryDate(): ?\DateTimeInterface

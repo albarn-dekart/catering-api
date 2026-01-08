@@ -19,6 +19,7 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use App\Filter\OrderSearchFilter;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -31,13 +32,16 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ApiFilter(OrderSearchFilter::class)]
 #[ApiFilter(SearchFilter::class, properties: ['status' => 'exact'])]
 #[ApiFilter(DateFilter::class, properties: ['createdAt'])]
-#[ApiResource(order: ['id' => 'DESC'])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'createdAt'])]
 #[ApiResource(
-    operations: [],
+    order: ['createdAt' => 'DESC'],
     normalizationContext: ['groups' => ['read']],
     denormalizationContext: ['groups' => ['create', 'update']],
     graphQlOperations: [
-        new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER') or is_granted('ROLE_COURIER')"),
+        new QueryCollection(
+            order: ['createdAt' => 'DESC'],
+            security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER') or is_granted('ROLE_COURIER')"
+        ),
         new Query(security: "is_granted('ROLE_CUSTOMER') and object.getCustomer() == user or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or is_granted('ROLE_ADMIN')"),
         new Mutation(security: "is_granted('ROLE_CUSTOMER')", name: 'create'),
         new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or (is_granted('ROLE_CUSTOMER') and object.getCustomer() == user)", name: 'update'),
@@ -78,7 +82,7 @@ class Order
     private Collection $deliveries;
 
     #[ORM\Column(type: Types::INTEGER)]
-    #[Groups(['create'])]
+    #[Groups(['read', 'create'])]
     private ?int $total = null;
 
     #[ORM\Column(length: 255, nullable: true)]

@@ -83,23 +83,28 @@ class OrderFixtures extends Fixture implements DependentFixtureInterface
             $restaurant = $this->getReference($restaurantRef, Restaurant::class);
             $order->setRestaurant($restaurant);
 
-            // Set created date - favor more recent orders for better visibility of active data
-            if ($i < 20) {
-                // 20 orders created in the last 3 days
-                $daysAgo = $faker->numberBetween(0, 3);
-            } elseif ($i < 50) {
-                // 30 orders created in the last 14 days
-                $daysAgo = $faker->numberBetween(4, 14);
+            // Force the first order to be a stale 'Unpaid' order for demoing the Auto-cancel command
+            if ($i === 0) {
+                $daysAgo = 10;
+                $status = OrderStatus::Unpaid;
             } else {
-                // 30 orders spread over the last 90 days
-                $daysAgo = $faker->numberBetween(15, 90);
+                // Set created date - favor more recent orders for better visibility of active data
+                if ($i < 20) {
+                    // 20 orders created in the last 3 days
+                    $daysAgo = $faker->numberBetween(0, 3);
+                } elseif ($i < 50) {
+                    // 30 orders created in the last 14 days
+                    $daysAgo = $faker->numberBetween(4, 14);
+                } else {
+                    // 30 orders spread over the last 90 days
+                    $daysAgo = $faker->numberBetween(15, 90);
+                }
+                // Assign a random status (Weighted distribution for realism)
+                $status = $this->getWeightedStatus($faker, (new DateTime())->modify("-$daysAgo days"));
             }
 
             $createdAt = (new DateTime())->modify("-$daysAgo days");
             $order->setCreatedAt($createdAt);
-
-            // Assign a random status (Weighted distribution for realism)
-            $status = $this->getWeightedStatus($faker, $createdAt);
             $order->setStatus($status);
 
             // Add 1-3 order items (meal plans)

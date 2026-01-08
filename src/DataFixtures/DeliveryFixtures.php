@@ -65,7 +65,21 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
                 $delivery->setCourier($courier);
 
                 // Determine status based on order status and date
-                $delivery->setStatus($this->getDeliveryStatus($order->getStatus(), $deliveryDate, $faker));
+                $status = $this->getDeliveryStatus($order->getStatus(), $deliveryDate, $faker);
+                $delivery->setStatus($status);
+
+                // Varied update times for demoing the "Undo" functionality
+                if ($status === DeliveryStatus::Delivered || $status === DeliveryStatus::Returned) {
+                    $rand = $faker->numberBetween(1, 100);
+                    if ($rand <= 30) {
+                        // 30% are "recent" (5 minutes ago) -> Undo button SHOULD be visible
+                        $delivery->setStatusUpdatedAt((new \DateTime())->modify('-5 minutes'));
+                    } elseif ($rand <= 60) {
+                        // 30% are "old" (30 minutes ago) -> Undo button SHOULD NOT be visible
+                        $delivery->setStatusUpdatedAt((new \DateTime())->modify('-30 minutes'));
+                    }
+                    // 40% keep "now" (default)
+                }
 
                 $order->addDelivery($delivery);
                 $manager->persist($delivery);

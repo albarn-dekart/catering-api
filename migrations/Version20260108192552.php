@@ -10,7 +10,7 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Auto-generated Migration: Please modify to your needs!
  */
-final class Version20260105125348 extends AbstractMigration
+final class Version20260108192552 extends AbstractMigration
 {
     public function getDescription(): string
     {
@@ -22,7 +22,7 @@ final class Version20260105125348 extends AbstractMigration
         // this up() migration is auto-generated, please modify it to your needs
         $this->addSql('CREATE TABLE address (id SERIAL NOT NULL, user_id INT NOT NULL, first_name VARCHAR(255) NOT NULL, last_name VARCHAR(255) NOT NULL, phone_number VARCHAR(255) NOT NULL, street VARCHAR(255) NOT NULL, apartment VARCHAR(255) DEFAULT NULL, city VARCHAR(255) NOT NULL, zip_code VARCHAR(255) NOT NULL, is_default BOOLEAN NOT NULL, PRIMARY KEY(id))');
         $this->addSql('CREATE INDEX IDX_D4E6F81A76ED395 ON address (user_id)');
-        $this->addSql('CREATE TABLE delivery (id SERIAL NOT NULL, courier_id INT DEFAULT NULL, order_id INT DEFAULT NULL, status VARCHAR(255) NOT NULL, delivery_date DATE NOT NULL, PRIMARY KEY(id))');
+        $this->addSql('CREATE TABLE delivery (id SERIAL NOT NULL, courier_id INT DEFAULT NULL, order_id INT DEFAULT NULL, status VARCHAR(255) NOT NULL, delivery_date DATE NOT NULL, status_updated_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, PRIMARY KEY(id))');
         $this->addSql('CREATE INDEX IDX_3781EC10E3D8151C ON delivery (courier_id)');
         $this->addSql('CREATE INDEX IDX_3781EC108D9F6D38 ON delivery (order_id)');
         $this->addSql('COMMENT ON COLUMN delivery.delivery_date IS \'(DC2Type:date_immutable)\'');

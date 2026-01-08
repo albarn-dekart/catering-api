@@ -58,7 +58,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private array $roles = [];
 
     #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'customer')]
-    #[ORM\OrderBy(['id' => 'DESC'])]
+    #[ORM\OrderBy(['createdAt' => 'DESC'])]
     #[ApiProperty(readableLink: true, writableLink: false)]
     #[Groups(['read'])]
     private Collection $orders;
