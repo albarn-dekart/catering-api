@@ -20,13 +20,6 @@ class DeliveryRepository extends ServiceEntityRepository
         parent::__construct($registry, Delivery::class);
     }
 
-    public function createCourierDeliveriesQueryBuilder(User $courier): QueryBuilder
-    {
-        return $this->createQueryBuilder('d')
-            ->andWhere('d.courier = :courier')
-            ->setParameter('courier', $courier)
-            ->orderBy('d.deliveryDate', 'DESC');
-    }
 
     /**
      * Get the count of deliveries grouped by status
@@ -60,7 +53,7 @@ class DeliveryRepository extends ServiceEntityRepository
         foreach ($results as $result) {
             $status = $result['status'];
             if ($status instanceof DeliveryStatus) {
-                $counts[$status->value] = (int) $result['count'];
+                $counts[$status->value] = (int)$result['count'];
             }
         }
 
@@ -167,5 +160,94 @@ class DeliveryRepository extends ServiceEntityRepository
         $deliveredCount = $deliveredQb->getQuery()->getSingleScalarResult();
 
         return $deliveredCount ? ($deliveredCount / $totalCompletedDeliveries) * 100 : 0.0;
+    }
+
+    public function getCourierDeliveryStats(User $courier, ?\DateTimeInterface $startDate = null, ?\DateTimeInterface $endDate = null, ?DeliveryStatus $statusFilter = null): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->select([
+                'COUNT(d.id) as total',
+                'SUM(CASE WHEN d.status = :delivered THEN 1 ELSE 0 END) as completed',
+                'SUM(CASE WHEN d.status IN (:inProgressStatuses) THEN 1 ELSE 0 END) as inProgress',
+                'SUM(CASE WHEN d.status = :failed THEN 1 ELSE 0 END) as failed',
+                'SUM(CASE WHEN d.status = :returned THEN 1 ELSE 0 END) as returned',
+            ])
+            ->where('d.courier = :courier')
+            ->setParameter('courier', $courier)
+            ->setParameter('delivered', DeliveryStatus::Delivered)
+            ->setParameter('inProgressStatuses', [DeliveryStatus::Assigned, DeliveryStatus::Picked_up])
+            ->setParameter('failed', DeliveryStatus::Failed)
+            ->setParameter('returned', DeliveryStatus::Returned);
+
+        // Add date filters if provided
+        if ($startDate) {
+            $qb->andWhere('d.deliveryDate >= :startDate')
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('d.deliveryDate <= :endDate')
+                ->setParameter('endDate', $endDate);
+        }
+
+        // Optional status filter
+        if ($statusFilter) {
+            $qb->andWhere('d.status = :statusFilter')
+                ->setParameter('statusFilter', $statusFilter);
+        }
+
+        $result = $qb->getQuery()->getSingleResult();
+
+        return [
+            'total' => (int)($result['total'] ?? 0),
+            'completed' => (int)($result['completed'] ?? 0),
+            'inProgress' => (int)($result['inProgress'] ?? 0),
+            'failed' => (int)($result['failed'] ?? 0),
+            'returned' => (int)($result['returned'] ?? 0),
+        ];
+    }
+
+    public function getRestaurantDeliveryStats(Restaurant $restaurant, ?\DateTimeInterface $startDate = null, ?\DateTimeInterface $endDate = null, ?DeliveryStatus $statusFilter = null): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->select([
+                'COUNT(d.id) as total',
+                'SUM(CASE WHEN d.status = :delivered THEN 1 ELSE 0 END) as completed',
+                'SUM(CASE WHEN d.status IN (:inProgressStatuses) THEN 1 ELSE 0 END) as inProgress',
+                'SUM(CASE WHEN d.status = :failed THEN 1 ELSE 0 END) as failed',
+                'SUM(CASE WHEN d.status = :returned THEN 1 ELSE 0 END) as returned',
+            ])
+            ->join('d.order', 'o')
+            ->where('o.restaurant = :restaurant')
+            ->setParameter('restaurant', $restaurant)
+            ->setParameter('delivered', DeliveryStatus::Delivered)
+            ->setParameter('inProgressStatuses', [DeliveryStatus::Assigned, DeliveryStatus::Picked_up])
+            ->setParameter('failed', DeliveryStatus::Failed)
+            ->setParameter('returned', DeliveryStatus::Returned);
+
+        // Add date filters if provided
+        if ($startDate) {
+            $qb->andWhere('d.deliveryDate >= :startDate')
+                ->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere('d.deliveryDate <= :endDate')
+                ->setParameter('endDate', $endDate);
+        }
+
+        // Optional status filter
+        if ($statusFilter) {
+            $qb->andWhere('d.status = :statusFilter')
+                ->setParameter('statusFilter', $statusFilter);
+        }
+
+        $result = $qb->getQuery()->getSingleResult();
+
+        return [
+            'total' => (int)($result['total'] ?? 0),
+            'completed' => (int)($result['completed'] ?? 0),
+            'inProgress' => (int)($result['inProgress'] ?? 0),
+            'failed' => (int)($result['failed'] ?? 0),
+            'returned' => (int)($result['returned'] ?? 0),
+        ];
     }
 }

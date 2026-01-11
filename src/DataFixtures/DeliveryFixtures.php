@@ -59,14 +59,20 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
                 $delivery = new Delivery();
                 $deliveryDate = $orderDate->modify('+' . ($deliveryPeriodDaysStart + $j) . ' days');
                 $delivery->setDeliveryDate($deliveryDate);
-                // Assign a random courier
-                /** @var User|null $courier */
-                $courier = $faker->randomElement($availableCouriers);
-                $delivery->setCourier($courier);
 
                 // Determine status based on order status and date
                 $status = $this->getDeliveryStatus($order->getStatus(), $deliveryDate, $faker);
                 $delivery->setStatus($status);
+
+                if ($status !== DeliveryStatus::Pending && !empty($availableCouriers)) {
+                    // Assign a random courier
+                    /** @var User|null $courier */
+                    $courier = $faker->randomElement($availableCouriers);
+                    $delivery->setCourier($courier);
+                } else {
+                    // Ensure courier is null if status is Pending
+                    $delivery->setCourier(null);
+                }
 
                 // Varied update times for demoing the "Undo" functionality
                 if ($status === DeliveryStatus::Delivered || $status === DeliveryStatus::Returned) {
