@@ -15,17 +15,31 @@ class OrderSearchFilter extends AbstractFilter
             return;
         }
 
+        $value = trim($value);
+        if ($value === '') {
+            return;
+        }
+
         $alias = $queryBuilder->getRootAliases()[0];
         $customerAlias = $queryNameGenerator->generateJoinAlias('customer');
 
-        $queryBuilder
-            ->leftJoin(sprintf('%s.customer', $alias), $customerAlias)
-            ->andWhere(sprintf(
-                'CONCAT(%1$s.id, \'\') LIKE :search OR LOWER(%1$s.deliveryFirstName) LIKE LOWER(:search) OR LOWER(%1$s.deliveryLastName) LIKE LOWER(:search) OR LOWER(%1$s.deliveryCity) LIKE LOWER(:search) OR LOWER(%1$s.deliveryStreet) LIKE LOWER(:search) OR LOWER(%2$s.email) LIKE LOWER(:search)',
-                $alias,
-                $customerAlias
-            ))
-            ->setParameter('search', '%' . $value . '%');
+        if (preg_match('/^#?\d+$/', $value)) {
+            // ID search (exact)
+            $idValue = ltrim($value, '#');
+            $queryBuilder
+                ->andWhere(sprintf('%s.id = :search', $alias))
+                ->setParameter('search', $idValue);
+        } else {
+            // Delivery name or partial customer email search
+            $queryBuilder
+                ->leftJoin(sprintf('%s.customer', $alias), $customerAlias)
+                ->andWhere(sprintf(
+                    'LOWER(%1$s.deliveryFirstName) LIKE LOWER(:search) OR LOWER(%1$s.deliveryLastName) LIKE LOWER(:search) OR LOWER(%2$s.email) LIKE LOWER(:search)',
+                    $alias,
+                    $customerAlias
+                ))
+                ->setParameter('search', '%' . $value . '%');
+        }
     }
 
     public function getDescription(string $resourceClass): array
@@ -35,7 +49,7 @@ class OrderSearchFilter extends AbstractFilter
                 'property' => 'search',
                 'type' => 'string',
                 'required' => false,
-                'description' => 'Search across multiple fields (Order ID, Name, City, Street, Customer Email) in Orders',
+                'description' => 'Search by Order ID',
             ],
         ];
     }

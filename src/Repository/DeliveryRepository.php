@@ -104,8 +104,7 @@ class DeliveryRepository extends ServiceEntityRepository
             ->where('d.status IN (:terminalStatuses)')
             ->setParameter('terminalStatuses', [
                 DeliveryStatus::Delivered,
-                DeliveryStatus::Failed,
-                DeliveryStatus::Returned
+                DeliveryStatus::Failed
             ]);
 
         if ($startDate && $endDate) {
@@ -170,14 +169,12 @@ class DeliveryRepository extends ServiceEntityRepository
                 'SUM(CASE WHEN d.status = :delivered THEN 1 ELSE 0 END) as completed',
                 'SUM(CASE WHEN d.status IN (:inProgressStatuses) THEN 1 ELSE 0 END) as inProgress',
                 'SUM(CASE WHEN d.status = :failed THEN 1 ELSE 0 END) as failed',
-                'SUM(CASE WHEN d.status = :returned THEN 1 ELSE 0 END) as returned',
             ])
             ->where('d.courier = :courier')
             ->setParameter('courier', $courier)
             ->setParameter('delivered', DeliveryStatus::Delivered)
             ->setParameter('inProgressStatuses', [DeliveryStatus::Assigned, DeliveryStatus::Picked_up])
-            ->setParameter('failed', DeliveryStatus::Failed)
-            ->setParameter('returned', DeliveryStatus::Returned);
+            ->setParameter('failed', DeliveryStatus::Failed);
 
         // Add date filters if provided
         if ($startDate) {
@@ -202,7 +199,6 @@ class DeliveryRepository extends ServiceEntityRepository
             'completed' => (int)($result['completed'] ?? 0),
             'inProgress' => (int)($result['inProgress'] ?? 0),
             'failed' => (int)($result['failed'] ?? 0),
-            'returned' => (int)($result['returned'] ?? 0),
         ];
     }
 
@@ -214,15 +210,13 @@ class DeliveryRepository extends ServiceEntityRepository
                 'SUM(CASE WHEN d.status = :delivered THEN 1 ELSE 0 END) as completed',
                 'SUM(CASE WHEN d.status IN (:inProgressStatuses) THEN 1 ELSE 0 END) as inProgress',
                 'SUM(CASE WHEN d.status = :failed THEN 1 ELSE 0 END) as failed',
-                'SUM(CASE WHEN d.status = :returned THEN 1 ELSE 0 END) as returned',
             ])
             ->join('d.order', 'o')
             ->where('o.restaurant = :restaurant')
             ->setParameter('restaurant', $restaurant)
             ->setParameter('delivered', DeliveryStatus::Delivered)
             ->setParameter('inProgressStatuses', [DeliveryStatus::Assigned, DeliveryStatus::Picked_up])
-            ->setParameter('failed', DeliveryStatus::Failed)
-            ->setParameter('returned', DeliveryStatus::Returned);
+            ->setParameter('failed', DeliveryStatus::Failed);
 
         // Add date filters if provided
         if ($startDate) {
@@ -247,7 +241,6 @@ class DeliveryRepository extends ServiceEntityRepository
             'completed' => (int)($result['completed'] ?? 0),
             'inProgress' => (int)($result['inProgress'] ?? 0),
             'failed' => (int)($result['failed'] ?? 0),
-            'returned' => (int)($result['returned'] ?? 0),
         ];
     }
 }

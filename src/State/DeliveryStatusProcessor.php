@@ -42,10 +42,11 @@ final readonly class DeliveryStatusProcessor implements ProcessorInterface
                 $newCourierId = $newCourier?->getId();
 
                 if ($oldCourierId !== null && $oldCourierId !== $newCourierId) {
-                    if ($oldStatus === DeliveryStatus::Picked_up ||
+                    if (
+                        $oldStatus === DeliveryStatus::Picked_up ||
                         $oldStatus === DeliveryStatus::Failed ||
-                        $oldStatus === DeliveryStatus::Delivered ||
-                        $oldStatus === DeliveryStatus::Returned) {
+                        $oldStatus === DeliveryStatus::Delivered
+                    ) {
                         throw new AccessDeniedHttpException('Cannot reassign courier when delivery is in progress, failed or completed.');
                     }
                 }
@@ -63,7 +64,6 @@ final readonly class DeliveryStatusProcessor implements ProcessorInterface
                 // Check for revert grace period
                 if ($oldStatus !== null && (
                     $oldStatus === DeliveryStatus::Delivered ||
-                    $oldStatus === DeliveryStatus::Returned ||
                     $oldStatus === DeliveryStatus::Failed
                 )) {
                     $newStatus = $data->getStatus();

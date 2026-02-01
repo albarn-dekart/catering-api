@@ -18,10 +18,10 @@ use Symfony\Component\Validator\Constraints as Assert;
     operations: [],
     normalizationContext: ['groups' => ['read']],
     graphQlOperations: [
-        new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER')"),
-        new Query(security: "is_granted('ROLE_ADMIN') or object.getOrder().getCustomer() == user or object.getOrder().getRestaurant().getOwner() == user"),
-        new Mutation(security: "is_granted('ROLE_ADMIN')", name: 'update'),
-        new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
+        new QueryCollection(security: "is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER')"),
+        new Query(security: "object.getOrder().getCustomer() == user or object.getOrder().getRestaurant().getOwner() == user"),
+        new Mutation(security: "object.getOrder().getRestaurant().getOwner() == user", name: 'update'),
+        new DeleteMutation(security: "object.getOrder().getRestaurant().getOwner() == user", name: 'delete')
     ],
 )]
 class OrderItem

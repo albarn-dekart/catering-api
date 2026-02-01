@@ -14,13 +14,31 @@ class UserSearchFilter extends AbstractFilter
         $alias = $queryBuilder->getRootAliases()[0];
 
         if ($property === 'search') {
-            $queryBuilder
-                ->andWhere(sprintf('CONCAT(%s.id, \'\') LIKE :search OR LOWER(%s.email) LIKE LOWER(:search)', $alias, $alias))
-                ->setParameter('search', '%' . $value . '%');
+            $value = trim($value);
+            if ($value === '') {
+                return;
+            }
+
+            if (preg_match('/^#?\d+$/', $value)) {
+                // ID search (exact)
+                $idValue = ltrim($value, '#');
+                $queryBuilder
+                    ->andWhere(sprintf('%s.id = :search', $alias))
+                    ->setParameter('search', $idValue);
+            } else {
+                // General text / Partial email search
+                $queryBuilder
+                    ->andWhere(sprintf('LOWER(%s.email) LIKE LOWER(:search)', $alias))
+                    ->setParameter('search', '%' . $value . '%');
+            }
             return;
         }
 
         if ($property === 'role') {
+            $value = trim($value);
+            if ($value === '') {
+                return;
+            }
             // Using LIKE to search within the JSON array string representation
             // Cast to string using CONCAT for PostgreSQL JSON compatibility
             $queryBuilder

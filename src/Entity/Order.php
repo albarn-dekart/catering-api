@@ -40,12 +40,12 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
     graphQlOperations: [
         new QueryCollection(
             order: ['createdAt' => 'DESC'],
-            security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER') or is_granted('ROLE_COURIER')"
+            security: "is_granted('ROLE_RESTAURANT') or is_granted('ROLE_CUSTOMER') or is_granted('ROLE_COURIER')"
         ),
-        new Query(security: "is_granted('ROLE_CUSTOMER') and object.getCustomer() == user or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or is_granted('ROLE_ADMIN')"),
+        new Query(security: "is_granted('ROLE_CUSTOMER') and object.getCustomer() == user or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user)"),
         new Mutation(security: "is_granted('ROLE_CUSTOMER')", name: 'create'),
-        new Mutation(security: "is_granted('ROLE_ADMIN') or (is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or (is_granted('ROLE_CUSTOMER') and object.getCustomer() == user)", name: 'update'),
-        new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
+        new Mutation(security: "(is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user) or (is_granted('ROLE_CUSTOMER') and object.getCustomer() == user)", name: 'update'),
+        new DeleteMutation(security: "is_granted('ROLE_RESTAURANT') and object.getRestaurant().getOwner() == user", name: 'delete')
     ],
 )]
 class Order

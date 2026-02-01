@@ -80,6 +80,8 @@ class RestaurantStatisticsController extends AbstractController
         $totalDeliveries = array_sum($deliveriesByStatus);
         $deliverySuccessRate = $this->deliveryRepository->getDeliverySuccessRate($restaurant, $startDate, $endDate);
 
+        $failedDeliveriesCount = $deliveriesByStatus[\App\Enum\DeliveryStatus::Failed->value] ?? 0;
+
         // Get popular meal plans
         $popularMealPlansData = $this->mealPlanRepository->getPopularMealPlans(5, $restaurant, $startDate, $endDate);
         $popularMealPlans = array_map(function ($item) {
@@ -113,6 +115,8 @@ class RestaurantStatisticsController extends AbstractController
             'completedOrders' => $completedOrders,
             'totalDeliveries' => $totalDeliveries,
             'deliverySuccessRate' => $deliverySuccessRate,
+            'failedDeliveriesCount' => $failedDeliveriesCount,
+            'deliveriesByStatus' => $deliveriesByStatus,
             'popularMealPlans' => $popularMealPlans,
             'revenueTimeSeries' => $revenueTimeSeries,
             'dailyOrdersTimeSeries' => $dailyOrdersTimeSeries,

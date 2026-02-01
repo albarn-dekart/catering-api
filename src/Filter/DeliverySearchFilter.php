@@ -15,16 +15,35 @@ class DeliverySearchFilter extends AbstractFilter
             return;
         }
 
+        $value = trim($value);
+        if ($value === '') {
+            return;
+        }
+
         $alias = $queryBuilder->getRootAliases()[0];
         $orderAlias = $queryNameGenerator->generateJoinAlias('order');
+        $customerAlias = $queryNameGenerator->generateJoinAlias('customer');
 
-        $queryBuilder
-            ->leftJoin(sprintf('%s.order', $alias), $orderAlias)
-            ->andWhere(sprintf(
-                'CONCAT(%1$s.id, \'\') LIKE :search OR LOWER(%1$s.deliveryFirstName) LIKE LOWER(:search) OR LOWER(%1$s.deliveryLastName) LIKE LOWER(:search) OR LOWER(%1$s.deliveryCity) LIKE LOWER(:search) OR LOWER(%1$s.deliveryStreet) LIKE LOWER(:search)',
-                $orderAlias
-            ))
-            ->setParameter('search', '%' . $value . '%');
+        if (preg_match('/^#?\d+$/', $value)) {
+            // ID search (exact) - Check both Delivery ID and Order ID
+            $idValue = ltrim($value, '#');
+            $queryBuilder
+                ->leftJoin(sprintf('%s.order', $alias), $orderAlias)
+                ->andWhere(sprintf('%s.id = :search OR %s.id = :search', $alias, $orderAlias))
+                ->setParameter('search', $idValue);
+        } else {
+            // Partial search on name, city, street and customer email
+            $queryBuilder
+                ->leftJoin(sprintf('%s.order', $alias), $orderAlias)
+                ->leftJoin(sprintf('%s.customer', $orderAlias), $customerAlias)
+                ->andWhere(sprintf(
+                    'LOWER(%2$s.deliveryFirstName) LIKE LOWER(:search) OR LOWER(%2$s.deliveryLastName) LIKE LOWER(:search) OR LOWER(%2$s.deliveryCity) LIKE LOWER(:search) OR LOWER(%2$s.deliveryStreet) LIKE LOWER(:search) OR LOWER(%3$s.email) LIKE LOWER(:search)',
+                    $alias,
+                    $orderAlias,
+                    $customerAlias
+                ))
+                ->setParameter('search', '%' . $value . '%');
+        }
     }
 
     public function getDescription(string $resourceClass): array
@@ -34,7 +53,7 @@ class DeliverySearchFilter extends AbstractFilter
                 'property' => 'search',
                 'type' => 'string',
                 'required' => false,
-                'description' => 'Search across multiple fields (Order ID, Name, City, Street) in Deliveries',
+                'description' => 'Search across multiple fields (Delivery ID, Order ID, Name, City, Street) in Deliveries',
             ],
         ];
     }

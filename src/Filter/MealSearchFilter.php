@@ -15,8 +15,13 @@ class MealSearchFilter extends AbstractFilter
             return;
         }
 
-        $alias = $queryBuilder->getRootAliases()[0];
+        $value = trim($value);
+        if ($value === '') {
+            return;
+        }
 
+        $alias = $queryBuilder->getRootAliases()[0];
+        // Partial search on name and description
         $queryBuilder
             ->andWhere(sprintf('LOWER(%s.name) LIKE LOWER(:search) OR LOWER(%s.description) LIKE LOWER(:search)', $alias, $alias))
             ->setParameter('search', '%' . $value . '%');

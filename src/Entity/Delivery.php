@@ -37,14 +37,14 @@ use App\Filter\DeliverySearchFilter;
     normalizationContext: ['groups' => ['read']],
     denormalizationContext: ['groups' => ['update']],
     graphQlOperations: [
-        new QueryCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_RESTAURANT') or is_granted('ROLE_COURIER') or is_granted('ROLE_CUSTOMER')"),
-        new Query(security: "is_granted('ROLE_ADMIN') or object.getOrder().getRestaurant().getOwner() == user or object.getCourier() == user or object.getOrder().getCustomer() == user"),
+        new QueryCollection(security: "is_granted('ROLE_RESTAURANT') or is_granted('ROLE_COURIER') or is_granted('ROLE_CUSTOMER')"),
+        new Query(security: "object.getOrder().getRestaurant().getOwner() == user or object.getCourier() == user or object.getOrder().getCustomer() == user"),
         new Mutation(
-            security: "is_granted('ROLE_ADMIN') or object.getCourier() == user or object.isOwnedByRestaurantOwner(user)",
+            security: "object.getCourier() == user or object.isOwnedByRestaurantOwner(user)",
             name: 'update',
             processor: \App\State\DeliveryStatusProcessor::class
         ),
-        new DeleteMutation(security: "is_granted('ROLE_ADMIN')", name: 'delete')
+        new DeleteMutation(security: "object.isOwnedByRestaurantOwner(user)", name: 'delete')
     ],
 )]
 class Delivery
@@ -134,7 +134,7 @@ class Delivery
             // Completed -> Active (Revert)
             if (
                 $order->getStatus() === OrderStatus::Completed &&
-                ($status !== DeliveryStatus::Delivered && $status !== DeliveryStatus::Returned)
+                $status !== DeliveryStatus::Delivered && $status !== DeliveryStatus::Failed
             ) {
                 $order->setStatus(OrderStatus::Active);
             }
@@ -142,16 +142,15 @@ class Delivery
             // Active -> Completed
             // Only check completion if current status is Delivered and Order is Active (or Paid/Unpaid? usually Active)
             if (
-                ($status === DeliveryStatus::Delivered || $status === DeliveryStatus::Returned) &&
+                ($status === DeliveryStatus::Delivered || $status === DeliveryStatus::Failed) &&
                 ($order->getStatus() === OrderStatus::Active || $order->getStatus() === OrderStatus::Paid)
             ) {
 
                 $allDelivered = true;
                 foreach ($order->getDeliveries() as $delivery) {
-                    // Check if delivery is in any terminal state (Delivered OR Returned)
-                    // Failed is NOT terminal (can still be retried)
+                    // Check if delivery is in any terminal state (Delivered OR Failed)
                     $deliveryStatus = $delivery->getStatus();
-                    if ($deliveryStatus !== DeliveryStatus::Delivered && $deliveryStatus !== DeliveryStatus::Returned) {
+                    if ($deliveryStatus !== DeliveryStatus::Delivered && $deliveryStatus !== DeliveryStatus::Failed) {
                         $allDelivered = false;
                         break;
                     }

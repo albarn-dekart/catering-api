@@ -9,5 +9,4 @@ enum DeliveryStatus: string
     case Picked_up = 'Picked_up';
     case Delivered = 'Delivered';
     case Failed = 'Failed';
-    case Returned = 'Returned';
 }

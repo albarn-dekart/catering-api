@@ -19,6 +19,7 @@ class StatisticsController extends AbstractController
     public function __construct(
         private readonly OrderRepository $orderRepository,
         private readonly UserRepository $userRepository,
+        private readonly \App\Repository\DeliveryRepository $deliveryRepository,
     ) {}
 
     /**
@@ -79,12 +80,20 @@ class StatisticsController extends AbstractController
         // Get top performing restaurants
         $topRestaurants = $this->orderRepository->getTopRestaurantsByRevenue(5, $startDate, $endDate);
 
+        // Get global delivery stats
+        $deliveriesByStatus = $this->deliveryRepository->getDeliveriesByStatus(null, $startDate, $endDate);
+        $totalDeliveries = array_sum($deliveriesByStatus);
+        $deliverySuccessRate = $this->deliveryRepository->getDeliverySuccessRate(null, $startDate, $endDate);
+
         return $this->json([
             'totalRevenue' => $totalRevenue,
             'totalOrders' => $totalOrders,
             'totalUsers' => $totalUsers,
             'activeOrders' => $activeOrders,
             'averageOrderValue' => $averageOrderValue,
+            'totalDeliveries' => $totalDeliveries,
+            'deliverySuccessRate' => $deliverySuccessRate,
+            'deliveriesByStatus' => $deliveriesByStatus,
             'customerCount' => $usersByRole['ROLE_CUSTOMER'] ?? 0,
             'restaurantCount' => $usersByRole['ROLE_RESTAURANT'] ?? 0,
             'courierCount' => $usersByRole['ROLE_COURIER'] ?? 0,

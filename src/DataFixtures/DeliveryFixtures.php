@@ -75,7 +75,7 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
                 }
 
                 // Varied update times for demoing the "Undo" functionality
-                if ($status === DeliveryStatus::Delivered || $status === DeliveryStatus::Returned) {
+                if ($status === DeliveryStatus::Delivered || $status === DeliveryStatus::Failed) {
                     $rand = $faker->numberBetween(1, 100);
                     if ($rand <= 30) {
                         // 30% are "recent" (5 minutes ago) -> Undo button SHOULD be visible
@@ -125,10 +125,8 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
                     return DeliveryStatus::Delivered;
                 } elseif ($rand <= 90) {
                     return DeliveryStatus::Picked_up;
-                } elseif ($rand <= 95) {
-                    return DeliveryStatus::Failed;
                 } else {
-                    return DeliveryStatus::Returned;
+                    return DeliveryStatus::Failed;
                 }
             } elseif ($deliveryDate->format('Y-m-d') === $now->format('Y-m-d')) {
                 // Today's deliveries: mix of statuses including issues
@@ -141,10 +139,8 @@ class DeliveryFixtures extends Fixture implements DependentFixtureInterface
                     return DeliveryStatus::Assigned;
                 } elseif ($rand <= 80) {
                     return DeliveryStatus::Pending;
-                } elseif ($rand <= 90) {
-                    return DeliveryStatus::Failed;
                 } else {
-                    return DeliveryStatus::Returned;
+                    return DeliveryStatus::Failed;
                 }
             } else {
                 // Future deliveries: assigned or pending
